@@ -54,7 +54,9 @@ export interface Deal {
   id: number;
   order_id: number;
   status: string;
-  order_status: string;
+  // Present on the my-deals list shape (joins orders); absent on the per-order
+  // deal shape (GET /orders/:id/deals returns bare deal columns).
+  order_status?: string;
   creator_user_id: number;
   responder_user_id: number;
   created_at: string;
