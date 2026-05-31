@@ -32,8 +32,12 @@ These hold by design and must not regress:
   (`requested → accepted → reserved → completed`) with an accept-time lock, per-option
   reference-rate snapshots, serializer-level sensitive-data gating, subscriptions,
   admin moderation, and an audit log. Verified end-to-end against Postgres.
+- **Stage 3 (React + Vite Mini App)** — done. Disclaimer gate, order book with pair/city
+  filters, order detail (responder + maker views), two-step create-order with live CBR
+  reference + deviation, my orders, my deals, subscriptions, profile (with private contact
+  fields), and a role-gated admin panel. Telegram theme-aware; dev-bypass login for browser use.
 - Stage 2 — Telegram bot (`/start` gate, approve/respond inline buttons, notifications).
-- Stage 3 — React + Vite Mini App UI.
+  Bot notifications are currently stubbed (fire-and-forget, harmless) until Stage 2.
 - Stage 4–5 — subscription matching + notifications, then hardening.
 
 See `CLAUDE.md` for architecture and local-dev instructions.

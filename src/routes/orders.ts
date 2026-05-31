@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getCtx, requireApproved } from '../middleware/auth.js';
 import { sendAppError } from '../middleware/errors.js';
-import { cancelOrder, createOrder, listOrders, loadOrderDetail } from '../services/orders.js';
+import { cancelOrder, createOrder, listMyOrders, listOrders, loadOrderDetail } from '../services/orders.js';
 import { respondToOrder } from '../services/deals.js';
 
 export const ordersRouter = Router();
@@ -30,6 +30,16 @@ ordersRouter.post('/orders', async (req, res, next) => {
     res.status(201).json(order);
   } catch (err) {
     sendAppError(res, err, next);
+  }
+});
+
+// Registered before /orders/:id so "mine" is not parsed as an order id.
+ordersRouter.get('/orders/mine', async (req, res, next) => {
+  try {
+    const ctx = getCtx(req);
+    res.json({ orders: await listMyOrders(ctx.communityId, ctx.userId) });
+  } catch (err) {
+    next(err);
   }
 });
 

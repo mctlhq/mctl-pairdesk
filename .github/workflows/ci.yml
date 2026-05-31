@@ -19,9 +19,24 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run type-check
-      # build:api only — the React Mini App (web/) is added in Stage 3, at which
-      # point a web job + the full `npm run build` are wired here.
       - run: npm run build:api
+
+  web:
+    name: web build & type-check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run type-check
+      - run: npm run build
 
   docker:
     name: docker image build (PR gate)
