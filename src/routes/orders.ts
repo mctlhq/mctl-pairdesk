@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { getCtx, requireApproved } from '../middleware/auth.js';
 import { sendAppError } from '../middleware/errors.js';
-import { cancelOrder, createOrder, listOrders, loadOrderDetail } from '../services/orders.js';
-import { respondToOrder } from '../services/deals.js';
+import { cancelOrder, createOrder, listMyOrders, listOrders, loadOrderDetail } from '../services/orders.js';
+import { listOrderDeals, respondToOrder } from '../services/deals.js';
 
 export const ordersRouter = Router();
 ordersRouter.use(requireApproved());
@@ -33,6 +33,16 @@ ordersRouter.post('/orders', async (req, res, next) => {
   }
 });
 
+// Registered before /orders/:id so "mine" is not parsed as an order id.
+ordersRouter.get('/orders/mine', async (req, res, next) => {
+  try {
+    const ctx = getCtx(req);
+    res.json({ orders: await listMyOrders(ctx.communityId, ctx.userId) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 ordersRouter.get('/orders/:id', async (req, res, next) => {
   try {
     const ctx = getCtx(req);
@@ -43,6 +53,18 @@ ordersRouter.get('/orders/:id', async (req, res, next) => {
     return res.json(order);
   } catch (err) {
     return next(err);
+  }
+});
+
+// Deals on this order, scoped server-side to what the caller may see.
+ordersRouter.get('/orders/:id/deals', async (req, res, next) => {
+  try {
+    const ctx = getCtx(req);
+    const id = Number.parseInt(req.params.id ?? '', 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'bad order id' });
+    return res.json({ deals: await listOrderDeals(ctx, id) });
+  } catch (err) {
+    return sendAppError(res, err, next);
   }
 });
 

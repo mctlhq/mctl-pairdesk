@@ -215,6 +215,18 @@ export async function listOrders(
   return assembleOrders(orders);
 }
 
+/** All of the caller's own orders (any status), newest first. */
+export async function listMyOrders(communityId: number, userId: number): Promise<Record<string, unknown>[]> {
+  const { rows } = await pool.query<OrderRow>(
+    `SELECT * FROM orders
+      WHERE community_id = $1 AND created_by_user_id = $2 AND deleted_at IS NULL
+      ORDER BY created_at DESC LIMIT 100`,
+    [communityId, userId],
+  );
+  if (rows.length === 0) return [];
+  return assembleOrders(rows);
+}
+
 /** Full detail for a single order (any status), or null if not found / deleted. */
 export async function loadOrderDetail(
   communityId: number,

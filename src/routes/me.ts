@@ -29,6 +29,7 @@ meRouter.get('/me', async (req, res, next) => {
     );
     const r = rows[0];
     res.json({
+      id: ctx.userId,
       telegram_id: ctx.telegramId,
       username: ctx.username,
       status: ctx.status,

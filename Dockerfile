@@ -1,13 +1,22 @@
 # ---- build backend (TS -> dist) ----
-# Builds only the backend. The React Mini App (web/, Stage 3) will get its own
-# build stage; until then a build:api-only image is fully functional as the API +
-# bot backend (the SPA fallback returns a 404 JSON when public/ is absent).
+# Builds only the backend in isolation; build:api (not the root build, which also
+# drives the web build) so this stage needs no web/ sources.
 FROM node:22.11-alpine3.20 AS build-api
 WORKDIR /app
 COPY package*.json tsconfig.json ./
 RUN npm ci
 COPY src ./src
 RUN npm run build:api
+
+# ---- build frontend SPA (Vite -> /app/public) ----
+# Vite outDir is ../public (resolved from /app/web -> /app/public), base '/'. The
+# SPA owns the public root; the runtime serves it via express.static.
+FROM node:22.11-alpine3.20 AS build-web
+WORKDIR /app/web
+COPY web/package*.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
 
 # ---- runtime ----
 FROM node:22.11-alpine3.20
@@ -21,6 +30,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=build-api /app/dist ./dist
+COPY --from=build-web /app/public ./public
 
 RUN addgroup -S app && adduser -S -G app -h /home/app app && chown -R app:app /app
 USER app
