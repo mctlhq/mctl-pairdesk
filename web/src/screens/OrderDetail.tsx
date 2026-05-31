@@ -13,10 +13,10 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
   const load = useCallback(async () => {
     const [o, d] = await Promise.all([
       api.get<Order>(`/orders/${orderId}`),
-      api.get<{ deals: Deal[] }>(`/deals`),
+      api.get<{ deals: Deal[] }>(`/orders/${orderId}/deals`),
     ]);
     setOrder(o);
-    setDeals(d.deals.filter((x) => x.order_id === orderId));
+    setDeals(d.deals);
   }, [orderId]);
 
   useEffect(() => {

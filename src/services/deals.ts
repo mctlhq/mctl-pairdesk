@@ -233,6 +233,31 @@ export async function getDealDetail(ctx: AuthContext, dealId: number): Promise<R
   };
 }
 
+/**
+ * Deals on a single order, scoped to what the caller may see: the order creator
+ * (or super-admin) sees every response; any other caller sees only their own
+ * deal on that order. Avoids shipping the caller's whole deal list to the client
+ * just to filter by order, and keeps authorization narrow.
+ */
+export async function listOrderDeals(ctx: AuthContext, orderId: number): Promise<Record<string, unknown>[]> {
+  const ord = await pool.query<{ created_by_user_id: number }>(
+    `SELECT created_by_user_id FROM orders WHERE id = $1 AND community_id = $2 AND deleted_at IS NULL`,
+    [orderId, ctx.communityId],
+  );
+  if (ord.rows.length === 0) throw new AppError(404, 'order not found');
+  const isMaker = ord.rows[0]!.created_by_user_id === ctx.userId || ctx.superAdmin;
+
+  const { rows } = await pool.query(
+    `SELECT id, order_id, status, creator_user_id, responder_user_id, created_at
+       FROM deals
+      WHERE community_id = $1 AND order_id = $2
+        AND ($3 OR responder_user_id = $4)
+      ORDER BY created_at ASC`,
+    [ctx.communityId, orderId, isMaker, ctx.userId],
+  );
+  return rows;
+}
+
 /** Deals the caller is involved in (as creator or responder), newest first. */
 export async function listMyDeals(ctx: AuthContext): Promise<Record<string, unknown>[]> {
   const { rows } = await pool.query(
