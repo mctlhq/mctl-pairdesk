@@ -38,6 +38,17 @@ export const config = {
   // initData freshness window in seconds (reject stale Mini App auth payloads).
   initDataMaxAgeSeconds: intEnv('INITDATA_MAX_AGE_SECONDS', 86400),
 
+  // Telegram bot webhook. webhookUrl is the public HTTPS URL Telegram POSTs
+  // updates to (e.g. https://pairdesk.example/telegram/webhook); when set with a
+  // token, the bot registers it on startup. webhookSecret is echoed back by
+  // Telegram in the X-Telegram-Bot-Api-Secret-Token header and verified.
+  webhookUrl: process.env.TELEGRAM_WEBHOOK_URL ?? '',
+  webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? '',
+
+  // Public HTTPS URL of the Mini App (the /app route), used for the "Open
+  // PairDesk" web_app button in bot messages. Empty → buttons omit it.
+  miniAppUrl: process.env.MINI_APP_URL ?? '',
+
   // Default order lifetime in seconds before the expiry sweeper marks it expired
   // (default 72h). Clients may pass a shorter explicit expiry.
   orderTtlSeconds: intEnv('ORDER_TTL_SECONDS', 259_200),

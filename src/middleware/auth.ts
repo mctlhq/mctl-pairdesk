@@ -1,7 +1,8 @@
 import type { NextFunction, Request, Response } from 'express';
 import { config, isSuperAdmin } from '../config.js';
-import { pool } from '../db/pool.js';
 import { getDefaultCommunityId } from '../services/community.js';
+import { notifyAdminsOfNewUser } from '../services/moderation.js';
+import { upsertTelegramUser } from '../services/users.js';
 import { verifyInitData } from '../telegram/initData.js';
 
 export type UserStatus = 'pending' | 'approved' | 'rejected' | 'blocked';
@@ -30,46 +31,6 @@ export function getCtx(req: Request): AuthContext {
   const ctx = (req as unknown as Record<symbol, AuthContext>)[CTX];
   if (!ctx) throw new Error('auth context missing — route not behind requireAuth');
   return ctx;
-}
-
-interface ResolvedUser {
-  id: number;
-  status: UserStatus;
-  role: UserRole;
-}
-
-/**
- * Upsert the Telegram user in the default community and return their id + gate
- * state. Super-admins (env allowlist) are force-approved with the admin role so
- * the first operator can always get in; everyone else lands as 'pending' until an
- * admin approves. Existing status/role are otherwise preserved across logins.
- */
-async function resolveUser(
-  communityId: number,
-  telegramId: number,
-  username: string | null,
-  firstName: string | null,
-  lastName: string | null,
-): Promise<ResolvedUser> {
-  const sa = isSuperAdmin(telegramId);
-  const seedStatus: UserStatus = sa ? 'approved' : 'pending';
-  const seedRole: UserRole = sa ? 'admin' : 'user';
-  const { rows } = await pool.query<ResolvedUser>(
-    `INSERT INTO users (community_id, telegram_id, username, first_name, last_name, status, role, last_seen_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, now())
-     ON CONFLICT (community_id, telegram_id) DO UPDATE
-       SET username   = COALESCE(EXCLUDED.username, users.username),
-           first_name = COALESCE(EXCLUDED.first_name, users.first_name),
-           last_name  = COALESCE(EXCLUDED.last_name, users.last_name),
-           -- super-admins are kept approved/admin; others keep their stored gate state
-           status     = CASE WHEN $8 THEN 'approved' ELSE users.status END,
-           role       = CASE WHEN $8 THEN 'admin'    ELSE users.role   END,
-           last_seen_at = now(),
-           updated_at = now()
-     RETURNING id, status, role`,
-    [communityId, telegramId, username, firstName, lastName, seedStatus, seedRole, sa],
-  );
-  return rows[0]!;
 }
 
 /**
@@ -104,7 +65,16 @@ export function requireAuth() {
 
     try {
       const communityId = await getDefaultCommunityId();
-      const u = await resolveUser(communityId, telegramId, username, firstName, lastName);
+      const u = await upsertTelegramUser(communityId, {
+        id: telegramId,
+        username,
+        first_name: firstName,
+        last_name: lastName,
+      });
+      // A brand-new pending member → let the moderators know (once, best-effort).
+      if (u.inserted && u.status === 'pending') {
+        void notifyAdminsOfNewUser(communityId, u.id, username ? `@${username}` : `id ${telegramId}`);
+      }
       (req as unknown as Record<symbol, AuthContext>)[CTX] = {
         userId: u.id,
         communityId,
