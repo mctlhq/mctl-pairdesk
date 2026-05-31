@@ -1,0 +1,10 @@
+node_modules/
+web/node_modules/
+dist/
+/public/
+landing/.astro/
+landing/dist/
+*.log
+.env
+.env.*
+.DS_Store
