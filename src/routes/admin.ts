@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { getCtx, requireApproved, requireRole } from '../middleware/auth.js';
+import { sendAppError } from '../middleware/errors.js';
 import { audit } from '../services/audit.js';
-import { notify } from '../telegram/bot.js';
+import { setUserStatus } from '../services/moderation.js';
 
 export const adminRouter = Router();
 adminRouter.use(requireApproved());
@@ -36,44 +37,28 @@ adminRouter.get('/users', async (req, res, next) => {
   }
 });
 
-/** Transition a target user's status and audit it; optionally notify them. */
-async function setStatus(req: import('express').Request, res: import('express').Response, next: import('express').NextFunction, status: string, action: string, notifyText?: string): Promise<void> {
+/** Transition a target user's status via the shared moderation service (RBAC +
+ * audit + notify live there, so the bot's approve/reject buttons behave identically). */
+async function setStatus(req: import('express').Request, res: import('express').Response, next: import('express').NextFunction, status: 'approved' | 'rejected' | 'blocked', notifyText?: string): Promise<void> {
   try {
-    const ctx = getCtx(req);
     const id = Number.parseInt(req.params.id ?? '', 10);
     if (!Number.isFinite(id)) {
       res.status(400).json({ error: 'bad user id' });
       return;
     }
-    const { rows } = await pool.query<{ telegram_id: number }>(
-      `UPDATE users SET status = $3, updated_at = now()
-        WHERE id = $1 AND community_id = $2 RETURNING telegram_id`,
-      [id, ctx.communityId, status],
-    );
-    if (rows.length === 0) {
-      res.status(404).json({ error: 'user not found' });
-      return;
-    }
-    await audit({ communityId: ctx.communityId, actorUserId: ctx.userId, action, targetType: 'user', targetId: id });
-    if (notifyText && rows[0]!.telegram_id) void notify(rows[0]!.telegram_id, notifyText);
+    await setUserStatus(getCtx(req), id, status, notifyText);
     res.json({ ok: true });
   } catch (err) {
-    next(err);
+    sendAppError(res, err, next);
   }
 }
 
 adminRouter.post('/users/:id/approve', (req, res, next) =>
-  setStatus(req, res, next, 'approved', 'admin.user_approved', 'You have been approved for PairDesk. Open the app to start.'),
+  setStatus(req, res, next, 'approved', 'You have been approved for PairDesk. Open the app to start.'),
 );
-adminRouter.post('/users/:id/reject', (req, res, next) =>
-  setStatus(req, res, next, 'rejected', 'admin.user_rejected'),
-);
-adminRouter.post('/users/:id/block', (req, res, next) =>
-  setStatus(req, res, next, 'blocked', 'admin.user_blocked'),
-);
-adminRouter.post('/users/:id/unblock', (req, res, next) =>
-  setStatus(req, res, next, 'approved', 'admin.user_unblocked'),
-);
+adminRouter.post('/users/:id/reject', (req, res, next) => setStatus(req, res, next, 'rejected'));
+adminRouter.post('/users/:id/block', (req, res, next) => setStatus(req, res, next, 'blocked'));
+adminRouter.post('/users/:id/unblock', (req, res, next) => setStatus(req, res, next, 'approved'));
 
 adminRouter.get('/orders', async (req, res, next) => {
   try {

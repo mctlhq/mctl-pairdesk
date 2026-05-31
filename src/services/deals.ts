@@ -2,7 +2,7 @@ import { pool, withTransaction } from '../db/pool.js';
 import type { AuthContext } from '../middleware/auth.js';
 import { AppError } from '../middleware/errors.js';
 import { audit } from './audit.js';
-import { notify } from '../telegram/bot.js';
+import { type InlineButton, notify, openAppButton } from '../telegram/bot.js';
 
 interface OrderLockRow {
   id: number;
@@ -45,7 +45,7 @@ export async function respondToOrder(ctx: AuthContext, orderId: number): Promise
         { communityId: ctx.communityId, actorUserId: ctx.userId, action: 'deal.requested', targetType: 'deal', targetId: dealId, meta: { order_id: orderId } },
         client,
       );
-      void notifyCreatorOfResponse(order.created_by_user_id, orderId);
+      void notifyCreatorOfResponse(order.created_by_user_id, orderId, dealId);
       return { deal_id: dealId };
     });
   } catch (err) {
@@ -273,9 +273,20 @@ export async function listMyDeals(ctx: AuthContext): Promise<Record<string, unkn
 
 // ---- notifications (best-effort; Stage 2 enriches with deep links) ----
 
-async function notifyCreatorOfResponse(creatorUserId: number, orderId: number): Promise<void> {
+async function notifyCreatorOfResponse(creatorUserId: number, orderId: number, dealId: number): Promise<void> {
   const tg = await telegramIdOf(creatorUserId);
-  if (tg) await notify(tg, `You have a new response on your order #${orderId}. Open PairDesk to review it.`);
+  if (!tg) return;
+  // Inline Accept/Reject buttons let the maker act straight from the chat; the
+  // callbacks run through the same acceptDeal/rejectDeal services as the app.
+  const buttons: InlineButton[][] = [
+    [
+      { text: '✓ Accept', callback_data: `accept_deal:${dealId}` },
+      { text: '✗ Reject', callback_data: `reject_deal:${dealId}` },
+    ],
+  ];
+  const open = openAppButton('Open order');
+  if (open) buttons.push([open]);
+  await notify(tg, `New response on your order #${orderId}. Accepting shares contact details with the responder.`, buttons);
 }
 
 async function notifyDealAccepted(dealId: number): Promise<void> {
@@ -284,7 +295,9 @@ async function notifyDealAccepted(dealId: number): Promise<void> {
     [dealId],
   );
   const tg = rows[0]?.tg;
-  if (tg) await notify(tg, `Your response was accepted. Open PairDesk to see the counterparty's contact details.`);
+  if (!tg) return;
+  const open = openAppButton('Open deal');
+  await notify(tg, `Your response was accepted. Open PairDesk to see the counterparty's contact details.`, open ? [[open]] : undefined);
 }
 
 async function telegramIdOf(userId: number): Promise<number | null> {

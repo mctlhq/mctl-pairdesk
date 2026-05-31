@@ -8,7 +8,9 @@ import { pool } from './db/pool.js';
 import { requireAuth } from './middleware/auth.js';
 import { getDefaultCommunityId } from './services/community.js';
 import { expireStaleOrders } from './services/orders.js';
+import { setWebhook } from './telegram/bot.js';
 import { adminRouter } from './routes/admin.js';
+import { webhookRouter } from './routes/webhook.js';
 import { dealsRouter } from './routes/deals.js';
 import { meRouter } from './routes/me.js';
 import { ordersRouter } from './routes/orders.js';
@@ -40,6 +42,9 @@ app.get('/metrics', (_req, res) => {
     .type('text/plain')
     .send(['# HELP mctl_pairdesk_up Service is up.', '# TYPE mctl_pairdesk_up gauge', 'mctl_pairdesk_up 1'].join('\n') + '\n');
 });
+
+// ---- Telegram bot webhook (public; authenticated by the secret-token header) ----
+app.use('/', webhookRouter);
 
 // ---- API (all routes require Telegram auth; per-router approval/role gates) ----
 const api = express.Router();
@@ -96,6 +101,7 @@ async function main(): Promise<void> {
     await getDefaultCommunityId(); // seed + cache the single community
     sweepExpiredOrders();
     setInterval(sweepExpiredOrders, 60_000);
+    void setWebhook(); // register the bot webhook when TELEGRAM_WEBHOOK_URL is set
   } else {
     // eslint-disable-next-line no-console
     console.warn('[startup] DATABASE_URL not set — skipping migrations (dev only)');
