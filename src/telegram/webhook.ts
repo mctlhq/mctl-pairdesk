@@ -129,13 +129,13 @@ async function handleCallback(cq: TgCallbackQuery): Promise<void> {
     let resolved = '';
     switch (action) {
       case 'approve_user': {
-        await setUserStatus(ctx, targetId, 'approved', 'You have been approved for PairDesk. Open the app to start.');
+        await setUserStatus(ctx, targetId, 'approved', 'You have been approved for PairDesk. Open the app to start.', 'pending');
         toast = 'Approved';
         resolved = `✅ Approved member #${targetId}.`;
         break;
       }
       case 'reject_user': {
-        await setUserStatus(ctx, targetId, 'rejected');
+        await setUserStatus(ctx, targetId, 'rejected', undefined, 'pending');
         toast = 'Rejected';
         resolved = `🚫 Rejected member #${targetId}.`;
         break;

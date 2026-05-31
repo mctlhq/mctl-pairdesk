@@ -30,18 +30,26 @@ const STATUS_ACTION: Record<string, string> = {
  * a notification to the affected user. Shared by the admin REST route and the
  * bot's approve/reject callback buttons so both enforce the same rules.
  * Returns the target's telegram_id (for the caller to act on if needed).
+ *
+ * `expectedFrom`: when set, the UPDATE is gated with AND status = expectedFrom.
+ * rowCount=0 when the gate rejects means the status changed concurrently — the
+ * bot callback guard (getUserStatus) already caught this case and produced a user-
+ * friendly "Already handled" message; the gate here is the belt to that suspender.
  */
 export async function setUserStatus(
   ctx: AuthContext,
   targetUserId: number,
   status: UserStatus,
   notifyText?: string,
+  expectedFrom?: UserStatus,
 ): Promise<number> {
   if (!canModerate(ctx)) throw new AppError(403, 'moderator role required');
   const { rows } = await pool.query<{ telegram_id: number }>(
     `UPDATE users SET status = $3, updated_at = now()
-      WHERE id = $1 AND community_id = $2 RETURNING telegram_id`,
-    [targetUserId, ctx.communityId, status],
+      WHERE id = $1 AND community_id = $2
+        AND ($4::text IS NULL OR status = $4)
+      RETURNING telegram_id`,
+    [targetUserId, ctx.communityId, status, expectedFrom ?? null],
   );
   if (rows.length === 0) throw new AppError(404, 'user not found');
   await audit({

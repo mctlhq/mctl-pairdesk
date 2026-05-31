@@ -1,23 +1,44 @@
 import { Router } from 'express';
 import { getCtx, requireApproved } from '../middleware/auth.js';
-import { sendAppError } from '../middleware/errors.js';
+import { AppError, sendAppError } from '../middleware/errors.js';
 import { cancelOrder, createOrder, listMyOrders, listOrders, loadOrderDetail } from '../services/orders.js';
 import { listOrderDeals, respondToOrder } from '../services/deals.js';
 
 export const ordersRouter = Router();
 ordersRouter.use(requireApproved());
 
+// In-memory rate limit: max 10 orders per 1-hour sliding window per user.
+// Single-process (per-replica) is sufficient for a closed community at this scale.
+const orderCreations = new Map<number, { count: number; windowStart: number }>();
+const MAX_ORDERS_PER_HOUR = 10;
+const WINDOW_MS = 3_600_000;
+
+function checkOrderRate(userId: number): void {
+  const now = Date.now();
+  const entry = orderCreations.get(userId);
+  if (!entry || now - entry.windowStart > WINDOW_MS) {
+    orderCreations.set(userId, { count: 1, windowStart: now });
+    return;
+  }
+  if (entry.count >= MAX_ORDERS_PER_HOUR) {
+    throw new AppError(429, 'too many orders — try again in an hour');
+  }
+  entry.count++;
+}
+
 // Public order book (within the community).
 ordersRouter.get('/orders', async (req, res, next) => {
   try {
     const ctx = getCtx(req);
-    const orders = await listOrders(ctx.communityId, {
+    const beforeRaw = req.query.before ? Number.parseInt(req.query.before as string, 10) : undefined;
+    const result = await listOrders(ctx.communityId, {
       want_asset: req.query.want_asset as string | undefined,
       give_asset: req.query.give_asset as string | undefined,
       location_city: req.query.location_city as string | undefined,
       limit: req.query.limit ? Number.parseInt(req.query.limit as string, 10) : undefined,
+      before_id: Number.isFinite(beforeRaw) ? beforeRaw : undefined,
     });
-    res.json({ orders });
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -26,6 +47,7 @@ ordersRouter.get('/orders', async (req, res, next) => {
 ordersRouter.post('/orders', async (req, res, next) => {
   try {
     const ctx = getCtx(req);
+    checkOrderRate(ctx.userId);
     const order = await createOrder(ctx, req.body ?? {});
     res.status(201).json(order);
   } catch (err) {
