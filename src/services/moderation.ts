@@ -67,7 +67,11 @@ export async function notifyAdminsOfNewUser(
   for (const id of config.superAdminIds) recipients.add(id);
   if (recipients.size === 0) return;
 
-  const text = `New join request: <b>${label}</b>\nApprove this member?`;
+  // label can carry user-controlled text (first/last name) in future callers, and
+  // notify() uses parse_mode HTML — escape the HTML metacharacters so a name can
+  // never break Bot API parsing (or inject markup).
+  const safeLabel = label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const text = `New join request: <b>${safeLabel}</b>\nApprove this member?`;
   const buttons: InlineButton[][] = [
     [
       { text: '✓ Approve', callback_data: `approve_user:${newUserId}` },

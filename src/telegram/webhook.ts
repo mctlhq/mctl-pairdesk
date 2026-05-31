@@ -97,6 +97,13 @@ async function handleCallback(cq: TgCallbackQuery): Promise<void> {
     await answerCallback(cq.id, 'Unknown user — open the app first.');
     return;
   }
+  // Parity with the Mini App's requireApproved(): a pending/blocked/rejected user
+  // must not act via the bot, even if they retain a stale moderator role. (Super-
+  // admins are force-approved by the upsert, so the env escape hatch survives.)
+  if (ctx.status !== 'approved') {
+    await answerCallback(cq.id, 'Not available.');
+    return;
+  }
 
   try {
     let toast = '';

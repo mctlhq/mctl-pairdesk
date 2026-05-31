@@ -78,7 +78,11 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   // eslint-disable-next-line no-console
   console.error('[error]', err);
   if (res.headersSent) return;
-  res.status(500).json({ error: 'internal error' });
+  // Honour a 4xx status set by upstream middleware (e.g. body-parser's 400 on
+  // malformed JSON) rather than masking every failure as a 500.
+  const s = (err as { status?: number; statusCode?: number })?.status ?? (err as { statusCode?: number })?.statusCode;
+  const status = typeof s === 'number' && s >= 400 && s < 500 ? s : 500;
+  res.status(status).json({ error: status === 500 ? 'internal error' : 'bad request' });
 });
 
 // Expire stale active orders. Idempotent and safe on every replica; runs on boot

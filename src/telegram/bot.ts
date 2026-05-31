@@ -66,16 +66,22 @@ export function openAppButton(text = 'Open PairDesk'): InlineButton | null {
   return config.miniAppUrl ? { text, web_app: { url: config.miniAppUrl } } : null;
 }
 
-/** Register the webhook with Telegram (called on startup when configured). */
+/** Register the webhook with Telegram (called on startup when configured). The
+ * secret is mandatory: the webhook route fails closed without it, so registering
+ * a secret-less webhook would just make every update 401. */
 export async function setWebhook(): Promise<void> {
   if (!config.telegramBotToken || !config.webhookUrl) return;
-  const body: Record<string, unknown> = {
+  if (!config.webhookSecret) {
+    // eslint-disable-next-line no-console
+    console.warn('[bot] TELEGRAM_WEBHOOK_URL set but TELEGRAM_WEBHOOK_SECRET missing — webhook NOT registered (route fails closed)');
+    return;
+  }
+  const ok = await tgApi('setWebhook', {
     url: config.webhookUrl,
+    secret_token: config.webhookSecret,
     allowed_updates: ['message', 'callback_query'],
     drop_pending_updates: false,
-  };
-  if (config.webhookSecret) body.secret_token = config.webhookSecret;
-  const ok = await tgApi('setWebhook', body);
+  });
   // eslint-disable-next-line no-console
   console.log(`[bot] setWebhook ${config.webhookUrl} -> ${ok ? 'ok' : 'failed'}`);
 }
