@@ -9,6 +9,16 @@ function canModerate(ctx: AuthContext): boolean {
   return ctx.superAdmin || ctx.role === 'moderator' || ctx.role === 'admin';
 }
 
+/** Current status of a user in a community, or null if not found. Used by the
+ * bot's join-request buttons to stay idempotent against stale keyboards. */
+export async function getUserStatus(communityId: number, userId: number): Promise<UserStatus | null> {
+  const { rows } = await pool.query<{ status: UserStatus }>(
+    `SELECT status FROM users WHERE id = $1 AND community_id = $2`,
+    [userId, communityId],
+  );
+  return rows[0]?.status ?? null;
+}
+
 const STATUS_ACTION: Record<string, string> = {
   approved: 'admin.user_approved',
   rejected: 'admin.user_rejected',

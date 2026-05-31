@@ -1,6 +1,6 @@
 import { getDefaultCommunityId } from '../services/community.js';
 import { acceptDeal, rejectDeal } from '../services/deals.js';
-import { notifyAdminsOfNewUser, setUserStatus } from '../services/moderation.js';
+import { getUserStatus, notifyAdminsOfNewUser, setUserStatus } from '../services/moderation.js';
 import { upsertTelegramUser } from '../services/users.js';
 import { AppError } from '../middleware/errors.js';
 import { answerCallback, editMessageText, type InlineButton, notify, openAppButton } from './bot.js';
@@ -103,6 +103,25 @@ async function handleCallback(cq: TgCallbackQuery): Promise<void> {
   if (ctx.status !== 'approved') {
     await answerCallback(cq.id, 'Not available.');
     return;
+  }
+
+  // Idempotency for join-request buttons: the same Approve/Reject keyboard is fanned
+  // out to every moderator, so one admin can hold a stale copy after another already
+  // acted. Reject the stale click rather than letting an unconditional status UPDATE
+  // undo a prior decision (mirrors the deal path's "already handled" guard).
+  if (action === 'approve_user' || action === 'reject_user') {
+    const cur = await getUserStatus(ctx.communityId, targetId);
+    if (cur === null) {
+      await answerCallback(cq.id, 'User not found');
+      return;
+    }
+    if (cur !== 'pending') {
+      await answerCallback(cq.id, 'Already handled');
+      if (chatId != null && messageId != null) {
+        await editMessageText(chatId, messageId, `Already handled — member is ${cur}.`);
+      }
+      return;
+    }
   }
 
   try {
