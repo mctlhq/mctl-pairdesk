@@ -66,6 +66,11 @@ export interface Deal {
   // present in the my-deals list shape
   want_asset?: Asset;
   want_amount?: string;
+  location_city?: string | null;
+  creator_username?: string | null;
+  creator_name?: string | null;
+  responder_username?: string | null;
+  responder_name?: string | null;
 }
 
 export interface Subscription {

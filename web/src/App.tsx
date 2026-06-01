@@ -91,7 +91,7 @@ export function App() {
         {tab === 'book'    && <OrderBook onOpen={setDetailOrderId} />}
         {tab === 'create'  && <CreateOrder onCreated={(id) => setDetailOrderId(id)} />}
         {tab === 'mine'    && <MyOrders onOpen={setDetailOrderId} />}
-        {tab === 'deals'   && <MyDeals onOpen={setDetailOrderId} />}
+        {tab === 'deals'   && <MyDeals onOpen={setDetailOrderId} me={me} />}
         {tab === 'subs'    && <Subscriptions />}
         {tab === 'profile' && <Profile me={me} onSaved={() => void loadMe()} />}
         {tab === 'admin'   && canAdmin && <Admin />}
