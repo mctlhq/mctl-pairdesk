@@ -125,7 +125,7 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
         ) : (
           <>
             {orders.map((o) => (
-              <OrderCard key={o.id} order={o} onOpen={onOpen} />
+              <OrderCard key={o.id} order={o} onOpen={onOpen} variant="rate" />
             ))}
             {nextCursor != null && (
               <button className="pd-loadmore" onClick={loadMore} disabled={loadingMore}>

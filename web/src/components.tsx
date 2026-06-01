@@ -293,19 +293,42 @@ export function OrderCard({
           <Badge status={order.status} />
         </div>
         <div className="pd-card-gives">
-          {order.give_options.map((g) => (
-            <div className="pd-cr-give" key={g.id}>
-              <AssetTag asset={g.asset} />
-              {g.max_rate && (
-                <span className="pd-cr-rate pd-num">
-                  {fmtAmount(g.max_rate)}
-                  <span className="pd-give-unit"> {g.asset}/{order.want_asset}</span>
-                </span>
-              )}
-              <span className="pd-spacer" />
-              <RateChip delta={g.delta_percent} style={rateStyle} compact />
-            </div>
-          ))}
+          {order.give_options.map((g) => {
+            const qty = Number.parseFloat(order.want_amount);
+            const rate = g.max_rate ? Number.parseFloat(g.max_rate) : null;
+            const total = rate && Number.isFinite(qty) && Number.isFinite(rate) ? qty * rate : null;
+            return (
+              <div key={g.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 6, borderBottom: '1px solid var(--pd-border)', marginBottom: 6 }}>
+                <div className="pd-cr-give">
+                  <AssetTag asset={g.asset} />
+                  {g.max_rate ? (
+                    <span className="pd-cr-rate pd-num">
+                      {fmtAmount(g.max_rate)}
+                      <span className="pd-give-unit"> {g.asset}/{order.want_asset}</span>
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 12, color: 'var(--pd-hint)' }}>rate not set</span>
+                  )}
+                  <span className="pd-spacer" />
+                  <RateChip delta={g.delta_percent} style={rateStyle} compact />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  {total != null && (
+                    <span style={{ color: 'var(--pd-text-2)', fontWeight: 700 }}>
+                      = <span className="pd-num">{fmtAmount(total)}</span> {g.asset}
+                    </span>
+                  )}
+                  {g.payment_methods.length > 0 && (
+                    <span style={{ color: 'var(--pd-hint)', display: 'flex', gap: 4 }}>
+                      {g.payment_methods.map((m) => (
+                        <span className="pd-method" key={m}>{PD_METHOD_LABEL[m] ?? m}</span>
+                      ))}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
         <div className="pd-row pd-card-foot">
           <Maker
