@@ -305,8 +305,10 @@ async function notifyCreatorOfResponse(
     `SELECT username, first_name FROM users WHERE id = $1`,
     [info.responderUserId],
   );
-  const responder = ru[0]?.username ? `@${ru[0].username}` : (ru[0]?.first_name ?? 'A member');
-  const amount = `${Number.parseFloat(info.wantAmount).toLocaleString('en-US', { maximumFractionDigits: 2 })} ${info.wantAsset}`;
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const rawName = ru[0]?.username ? `@${ru[0].username}` : (ru[0]?.first_name ?? 'A member');
+  const responder = esc(rawName);
+  const amount = `${info.wantAmount} ${info.wantAsset}`;
   const text = `${responder} responded to your order: ${amount}\n\nAccepting will share contact details so you can arrange the exchange directly.`;
   const buttons: InlineButton[][] = [
     [
