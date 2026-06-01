@@ -52,6 +52,31 @@ meRouter.get('/me', async (req, res, next) => {
   }
 });
 
+// Community-level stats — approved member count + open order count.
+// Scoped to the caller's community; response is cached in-process for 5 min.
+let statsCache: { members: number; orders_open: number; cachedAt: number } | null = null;
+const STATS_TTL_MS = 5 * 60_000;
+
+meRouter.get('/community/stats', async (req, res, next) => {
+  try {
+    const ctx = getCtx(req);
+    if (statsCache && Date.now() - statsCache.cachedAt < STATS_TTL_MS) {
+      return res.json(statsCache);
+    }
+    const { rows } = await pool.query<{ members: string; orders_open: string }>(
+      `SELECT
+         (SELECT count(*) FROM users  WHERE community_id = $1 AND status = 'approved') AS members,
+         (SELECT count(*) FROM orders WHERE community_id = $1 AND status = 'active' AND deleted_at IS NULL) AS orders_open`,
+      [ctx.communityId],
+    );
+    const r = rows[0]!;
+    statsCache = { members: Number(r.members), orders_open: Number(r.orders_open), cachedAt: Date.now() };
+    return res.json(statsCache);
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // Record disclaimer acceptance (req #6 of the UI gate). Idempotent.
 meRouter.post('/me/accept-disclaimer', async (req, res, next) => {
   try {
