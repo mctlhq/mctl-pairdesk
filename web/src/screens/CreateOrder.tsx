@@ -87,7 +87,12 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
             </div>
             <AssetSelect value={wantAsset} onChange={(a) => {
               setWantAsset(a);
-              setOpts((p) => p.map((o) => o.asset === a ? { ...o, asset: availFor(0)[0] ?? o.asset } : o));
+              setOpts((prev) => prev.map((o) =>
+                o.asset !== a ? o : {
+                  ...o,
+                  asset: ASSETS.find((x) => x !== a && !prev.some((oo) => oo !== o && oo.asset === x)) ?? o.asset,
+                },
+              ));
             }} />
             <span className="pd-label">Amount</span>
             <div className="pd-amount-field">

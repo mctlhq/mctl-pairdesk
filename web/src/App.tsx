@@ -79,7 +79,7 @@ export function App() {
     { id: 'book',    label: 'Book',    icon: 'book',    show: true      },
     { id: 'create',  label: 'Create',  icon: 'create',  show: true      },
     { id: 'mine',    label: 'Orders',  icon: 'orders',  show: true      },
-    { id: 'deals',   label: 'Deals',   icon: 'orders',  show: true      },
+    { id: 'deals',   label: 'Deals',   icon: 'arrowSwap', show: true    },
     { id: 'subs',    label: 'Alerts',  icon: 'bell',    show: true      },
     { id: 'profile', label: 'Profile', icon: 'user',    show: true      },
     { id: 'admin',   label: 'Admin',   icon: 'shield',  show: canAdmin  },

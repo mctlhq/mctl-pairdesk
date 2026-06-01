@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api.js';
-import { Badge, fmtAmount, GiveRow, Icon, Maker } from '../components.js';
+import { Badge, fmtAmount, GiveRow, Icon, Maker, PD_GLYPH } from '../components.js';
 import { haptic, showBackButton } from '../tg.js';
 import type { Deal, Me, Order } from '../types.js';
-
-const GLYPH: Record<string, string> = { EUR: '€', RUB: '₽', USDT: '₮' };
 
 export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; onBack: () => void }) {
   const [order, setOrder] = useState<Order | null>(null);
@@ -50,7 +48,7 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
         <div className="pd-row">
           <span className="pd-want pd-want-lg">
             <span className={`pd-glyph pd-glyph-${order.want_asset} pd-glyph-lg`} aria-hidden="true">
-              {GLYPH[order.want_asset] ?? order.want_asset[0]}
+              {PD_GLYPH[order.want_asset] ?? order.want_asset[0]}
             </span>
             <span className="pd-want-amt pd-num">{fmtAmount(order.want_amount)}</span>
             <span className="pd-want-code">{order.want_asset}</span>
@@ -123,7 +121,7 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
             </div>
           )}
           {(myDeal?.status === 'accepted' || myDeal?.status === 'completed') && myDeal && (
-            <ContactPanel dealId={myDeal.id} me={me} onComplete={() => void run(() => api.post(`/deals/${myDeal.id}/complete`), 'Marked complete.')} busy={busy} />
+            <ContactPanel dealId={myDeal.id} me={me} onComplete={() => void run(() => api.post(`/deals/${myDeal.id}/complete`), 'Marked complete.')} busy={busy} done={myDeal.status === 'completed'} />
           )}
           {myDeal?.status === 'rejected' && <p className="pd-muted-row">This response was not selected.</p>}
         </>
@@ -155,7 +153,7 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
             ))}
           </div>
           {acceptedDeal && (
-            <ContactPanel dealId={acceptedDeal.id} me={me} onComplete={() => void run(() => api.post(`/deals/${acceptedDeal.id}/complete`), 'Marked complete.')} busy={busy} />
+            <ContactPanel dealId={acceptedDeal.id} me={me} onComplete={() => void run(() => api.post(`/deals/${acceptedDeal.id}/complete`), 'Marked complete.')} busy={busy} done={acceptedDeal.status === 'completed'} />
           )}
           {['active', 'reserved'].includes(order.status) && (
             <button className="pd-btn-ghost-sm" style={{ width: '100%', marginTop: 16, justifyContent: 'center' }}
@@ -169,7 +167,7 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
   );
 }
 
-function ContactPanel({ dealId, me, onComplete, busy }: { dealId: number; me: Me; onComplete: () => void; busy: boolean }) {
+function ContactPanel({ dealId, me, onComplete, busy, done = false }: { dealId: number; me: Me; onComplete: () => void; busy: boolean; done?: boolean }) {
   const [deal, setDeal] = useState<Deal | null>(null);
   useEffect(() => { api.get<Deal>(`/deals/${dealId}`).then(setDeal).catch(() => setDeal(null)); }, [dealId]);
   if (!deal) return <p className="pd-muted-row">Loading contact…</p>;
@@ -182,7 +180,7 @@ function ContactPanel({ dealId, me, onComplete, busy }: { dealId: number; me: Me
       <div className="pd-kv"><span className="pd-k">Phone</span><span className="pd-v pd-num">{cp?.phone ?? '—'}</span></div>
       <div className="pd-kv"><span className="pd-k">Details</span><span className="pd-v">{cp?.contact ?? '—'}</span></div>
       <p className="pd-contact-note">Arrange and settle directly. Mark the deal complete once done.</p>
-      <button className="pd-btn-block" disabled={busy} onClick={onComplete}>Mark deal complete</button>
+      {!done && <button className="pd-btn-block" disabled={busy} onClick={onComplete}>Mark deal complete</button>}
     </div>
   );
 }

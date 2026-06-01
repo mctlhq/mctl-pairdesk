@@ -115,7 +115,7 @@ export function RateChip({
   const pct = `${sign}${d!.toFixed(1)}%`;
 
   if (style === 'bar') {
-    const w = Math.min(100, 50 + d! * 2.5);
+    const w = Math.max(0, Math.min(100, 50 + d! * 2.5));
     return (
       <span className={`pd-ratebar pd-rate-${st.key}`}>
         <span className="pd-ratebar-fill" style={{ width: `${w}%` }} />
