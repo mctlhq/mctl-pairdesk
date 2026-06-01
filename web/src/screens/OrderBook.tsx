@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { Empty, OrderCard } from '../components.js';
 import { ASSETS, type Asset, type Order } from '../types.js';
@@ -8,22 +8,45 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
   const [give, setGive] = useState<Asset | ''>('');
   const [city, setCity] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Monotonically-increasing fetch ID. Stored in a ref so it persists across
+  // renders; compared in the .then() callback to discard stale responses.
+  const latestSeq = useRef(0);
+
+  function fetchOrders(before?: number, append = false) {
+    const seq = ++latestSeq.current;
+    const qs = new URLSearchParams();
+    if (want) qs.set('want_asset', want);
+    if (give) qs.set('give_asset', give);
+    if (city.trim()) qs.set('location_city', city.trim());
+    if (before != null) qs.set('before', String(before));
+    return api
+      .get<{ orders: Order[]; next_cursor: number | null }>(`/orders?${qs.toString()}`)
+      .then((r) => {
+        // Drop responses from earlier fetches that resolved after a newer one.
+        if (seq !== latestSeq.current) return;
+        setOrders((prev) => append ? [...prev, ...r.orders] : r.orders);
+        setNextCursor(r.next_cursor);
+      });
+  }
 
   useEffect(() => {
     const t = setTimeout(() => {
-      const qs = new URLSearchParams();
-      if (want) qs.set('want_asset', want);
-      if (give) qs.set('give_asset', give);
-      if (city.trim()) qs.set('location_city', city.trim());
       setLoading(true);
-      api
-        .get<{ orders: Order[] }>(`/orders?${qs.toString()}`)
-        .then((r) => setOrders(r.orders))
-        .finally(() => setLoading(false));
+      setNextCursor(null);
+      fetchOrders().finally(() => setLoading(false));
     }, 250);
     return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [want, give, city]);
+
+  function loadMore() {
+    if (nextCursor == null) return;
+    setLoadingMore(true);
+    fetchOrders(nextCursor, true).finally(() => setLoadingMore(false));
+  }
 
   return (
     <div>
@@ -58,7 +81,14 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
         ) : orders.length === 0 ? (
           <Empty text="No matching orders. Try widening the filters or create one." />
         ) : (
-          orders.map((o) => <OrderCard key={o.id} order={o} onOpen={onOpen} />)
+          <>
+            {orders.map((o) => <OrderCard key={o.id} order={o} onOpen={onOpen} />)}
+            {nextCursor != null && (
+              <button className="ghost" style={{ width: '100%', marginTop: 8 }} onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

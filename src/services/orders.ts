@@ -3,6 +3,7 @@ import { pool, type PoolClient, withTransaction } from '../db/pool.js';
 import { AppError } from '../middleware/errors.js';
 import type { AuthContext } from '../middleware/auth.js';
 import { audit } from './audit.js';
+import { matchAndNotify } from './matching.js';
 import { deltaPercent, getReferenceRate } from './rates.js';
 import {
   type GiveOptionRow,
@@ -169,6 +170,22 @@ export async function createOrder(
     );
   }
 
+  // Fan-out subscription notifications. Best-effort: never blocks order creation.
+  void matchAndNotify({
+    orderId,
+    communityId: ctx.communityId,
+    creatorUserId: ctx.userId,
+    wantAsset: n.wantAsset,
+    wantAmount: n.wantAmount,
+    giveOptions: optionIds.map(({ opt }) => ({
+      asset: opt.asset,
+      maxRate: opt.maxRate,
+      paymentMethods: opt.paymentMethods,
+    })),
+    locationCity: n.locationCity,
+    locationCountry: n.locationCountry,
+  });
+
   return (await loadOrderDetail(ctx.communityId, orderId))!;
 }
 
@@ -177,13 +194,19 @@ export interface OrderFilters {
   give_asset?: string;
   location_city?: string;
   limit?: number;
+  before_id?: number;
+}
+
+export interface OrderList {
+  orders: Record<string, unknown>[];
+  next_cursor: number | null;
 }
 
 /** Public order book: active, non-deleted orders, newest first. */
 export async function listOrders(
   communityId: number,
   filters: OrderFilters,
-): Promise<Record<string, unknown>[]> {
+): Promise<OrderList> {
   const where: string[] = [`o.community_id = $1`, `o.status = 'active'`, `o.deleted_at IS NULL`];
   const params: unknown[] = [communityId];
 
@@ -201,18 +224,28 @@ export async function listOrders(
       `EXISTS (SELECT 1 FROM order_give_options g WHERE g.order_id = o.id AND g.asset = $${params.length})`,
     );
   }
+  if (filters.before_id != null && Number.isFinite(filters.before_id)) {
+    params.push(filters.before_id);
+    where.push(`o.id < $${params.length}`);
+  }
   const limit = Math.min(Math.max(filters.limit ?? 50, 1), 100);
   params.push(limit);
 
   const { rows: orders } = await pool.query<OrderRow>(
+    // ORDER BY id DESC keeps the cursor (before_id < last_id) consistent with the
+    // sort key. created_at is non-monotonic under concurrent inserts so using it
+    // as the cursor key while sorting by it would silently skip rows.
     `SELECT o.* FROM orders o
       WHERE ${where.join(' AND ')}
-      ORDER BY o.created_at DESC
+      ORDER BY o.id DESC
       LIMIT $${params.length}`,
     params,
   );
-  if (orders.length === 0) return [];
-  return assembleOrders(orders);
+  if (orders.length === 0) return { orders: [], next_cursor: null };
+  const assembled = await assembleOrders(orders);
+  // Emit next_cursor only when a full page was returned — i.e. there may be more.
+  const next_cursor = orders.length === limit ? (orders[orders.length - 1]?.id ?? null) : null;
+  return { orders: assembled, next_cursor };
 }
 
 /** All of the caller's own orders (any status), newest first. */
