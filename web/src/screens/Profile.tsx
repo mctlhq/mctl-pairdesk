@@ -1,15 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { Icon } from '../components.js';
-import { haptic } from '../tg.js';
+import { hasMainButton, hapticError, hapticSelection, hapticSuccess, setMainButton, showBackButton } from '../tg.js';
 import { type Me, PAYMENT_METHODS } from '../types.js';
+import { Admin } from './Admin.js';
+import { Subscriptions } from './Subscriptions.js';
 
 const METHOD_LABELS: Record<string, string> = {
   bank_transfer: 'Bank', cash: 'Cash', TRC20: 'TRC20', ERC20: 'ERC20', TON: 'TON', other: 'Other',
 };
 
-export function Profile({ me, onSaved }: { me: Me; onSaved: () => void }) {
+type ProfileView = 'main' | 'alerts' | 'admin';
+
+export function Profile({ me, canAdmin, onSaved }: { me: Me; canAdmin: boolean; onSaved: () => void }) {
   const p = me.profile;
+  const [view, setView] = useState<ProfileView>('main');
   const [displayName, setDisplayName] = useState(p.display_name ?? '');
   const [city, setCity] = useState(p.city ?? '');
   const [country, setCountry] = useState(p.country ?? '');
@@ -24,13 +29,35 @@ export function Profile({ me, onSaved }: { me: Me; onSaved: () => void }) {
     api.get<{ members: number }>('/community/stats').then((r) => setMembers(r.members)).catch(() => {});
   }, []);
 
-  async function save() {
+  const save = useCallback(async () => {
     setBusy(true); setMsg(null);
     try {
       await api.patch('/me', { display_name: displayName, city, country, preferred_payment_methods: methods, phone, contact });
-      haptic('success'); setMsg('Saved.'); onSaved();
-    } catch (e) { setMsg((e as Error).message); }
+      hapticSuccess(); setMsg('Saved.'); onSaved();
+    } catch (e) { hapticError(); setMsg((e as Error).message); }
     finally { setBusy(false); }
+  }, [city, contact, country, displayName, methods, onSaved, phone]);
+
+  useEffect(() => {
+    if (view === 'main') return undefined;
+    return showBackButton(() => setView('main'));
+  }, [view]);
+
+  useEffect(() => {
+    if (view !== 'main') return undefined;
+    return setMainButton({
+      text: busy ? 'Saving...' : 'Save',
+      enabled: !busy,
+      loading: busy,
+      onClick: () => { void save(); },
+    });
+  }, [busy, save, view]);
+
+  if (view === 'alerts') {
+    return <Subscriptions />;
+  }
+  if (view === 'admin' && canAdmin) {
+    return <Admin />;
   }
 
   const initial = (me.profile.display_name || me.username || 'U').slice(0, 1).toUpperCase();
@@ -71,9 +98,30 @@ export function Profile({ me, onSaved }: { me: Me; onSaved: () => void }) {
       {members != null && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--pd-hint)', marginBottom: 16 }}>
           <Icon name="user" size={14} cls="pd-mut-ic" />
-          Member of a community of <span className="pd-num" style={{ fontWeight: 700, color: 'var(--pd-text-2)' }}>{members}</span> vetted traders
+          Member of a community of <span className="pd-num" style={{ fontWeight: 700, color: 'var(--pd-text-2)' }}>{members}</span> trusted traders
         </div>
       )}
+
+      <div className="pd-profile-links" aria-label="Profile sections">
+        <button type="button" className="pd-profile-link" onClick={() => { hapticSelection(); setView('alerts'); }}>
+          <span className="pd-profile-link-ic"><Icon name="bell" size={17} /></span>
+          <span>
+            <span className="pd-profile-link-title">Alerts</span>
+            <span className="pd-profile-link-sub">Matching order notifications</span>
+          </span>
+          <Icon name="chevron" size={16} cls="pd-chev" />
+        </button>
+        {canAdmin && (
+          <button type="button" className="pd-profile-link" onClick={() => { hapticSelection(); setView('admin'); }}>
+            <span className="pd-profile-link-ic"><Icon name="shield" size={17} /></span>
+            <span>
+              <span className="pd-profile-link-title">Admin</span>
+              <span className="pd-profile-link-sub">Moderation and community controls</span>
+            </span>
+            <Icon name="chevron" size={16} cls="pd-chev" />
+          </button>
+        )}
+      </div>
 
       <span className="pd-label">Display name</span>
       <input className="pd-input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
@@ -117,9 +165,11 @@ export function Profile({ me, onSaved }: { me: Me; onSaved: () => void }) {
         placeholder="@handle, bank/wallet details to share on a match" />
 
       {msg && <p style={{ fontSize: 13, color: msg === 'Saved.' ? 'var(--pd-good)' : 'var(--pd-far)', margin: '8px 0' }}>{msg}</p>}
-      <button className="pd-btn-block" disabled={busy} onClick={() => void save()}>
-        {busy ? 'Saving…' : 'Save'}
-      </button>
+      {!hasMainButton() && (
+        <button className="pd-btn-block" disabled={busy} onClick={() => void save()}>
+          {busy ? 'Saving…' : 'Save'}
+        </button>
+      )}
     </div>
   );
 }

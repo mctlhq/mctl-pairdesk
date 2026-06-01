@@ -23,7 +23,7 @@
   --pd-hint:          var(--tg-hint, #7b879b);
   --pd-border:        #e8edf4;
   --pd-border-2:      #dbe2ec;
-  --pd-header-bg:     var(--tg-bg, #ffffff);
+  --pd-header-bg:     var(--tg-bottom-bar-bg, var(--tg-bg, #ffffff));
   --pd-header-border: #ebeff5;
 
   /* ---- accent: prefer Telegram button color, fall back to PairDesk blue ---- */

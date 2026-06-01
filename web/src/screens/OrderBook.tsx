@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { Empty, Icon, OrderCard } from '../components.js';
+import { hapticSelection } from '../tg.js';
 import { ASSETS, type Asset, type Order } from '../types.js';
 
 export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
@@ -12,6 +13,7 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const latestSeq = useRef(0);
 
   function fetchOrders(before?: number, append = false) {
@@ -27,6 +29,11 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
         if (seq !== latestSeq.current) return;
         setOrders((prev) => append ? [...prev, ...r.orders] : r.orders);
         setNextCursor(r.next_cursor);
+        setErr(null);
+      })
+      .catch((e) => {
+        if (seq !== latestSeq.current) return;
+        setErr((e as Error).message);
       });
   }
 
@@ -72,13 +79,13 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
           <div className="pd-chips">
             <button
               className={`pd-chip${want === '' ? ' is-on' : ''}`}
-              onClick={() => setWant('')}
+              onClick={() => { hapticSelection(); setWant(''); }}
             >All</button>
             {ASSETS.map((a) => (
               <button
                 key={a}
                 className={`pd-chip pd-chip-filter${want === a ? ' is-on' : ''}`}
-                onClick={() => setWant(want === a ? '' : a)}
+                onClick={() => { hapticSelection(); setWant(want === a ? '' : a); }}
               >{a}</button>
             ))}
           </div>
@@ -89,13 +96,13 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
           <div className="pd-chips">
             <button
               className={`pd-chip${give === '' ? ' is-on' : ''}`}
-              onClick={() => setGive('')}
+              onClick={() => { hapticSelection(); setGive(''); }}
             >Any</button>
             {ASSETS.map((a) => (
               <button
                 key={a}
                 className={`pd-chip pd-chip-filter${give === a ? ' is-on' : ''}`}
-                onClick={() => setGive(give === a ? '' : a)}
+                onClick={() => { hapticSelection(); setGive(give === a ? '' : a); }}
               >{a}</button>
             ))}
           </div>
@@ -110,7 +117,7 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
             onChange={(e) => setCity(e.target.value)}
           />
           {city && (
-            <button className="pd-field-clear" onClick={() => setCity('')}>
+            <button className="pd-field-clear" onClick={() => setCity('')} aria-label="Clear city filter">
               <Icon name="close" size={14} />
             </button>
           )}
@@ -118,8 +125,17 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
       </div>
 
       <div className="pd-list">
-        {loading ? (
-          <p className="pd-muted-row">Loading…</p>
+        {err ? (
+          <div className="pd-state-card pd-state-error">
+            <Icon name="close" size={18} />
+            <span>{err}</span>
+          </div>
+        ) : loading ? (
+          <>
+            <div className="pd-skeleton-card" />
+            <div className="pd-skeleton-card" />
+            <div className="pd-skeleton-card" />
+          </>
         ) : orders.length === 0 ? (
           <Empty text="No matching orders. Try widening the filters or create one." />
         ) : (

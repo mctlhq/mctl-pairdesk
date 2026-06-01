@@ -1,17 +1,22 @@
 import { useState } from 'react';
 import { api } from '../api.js';
 import { Icon } from '../components.js';
-import { haptic } from '../tg.js';
+import { hapticError, hapticSuccess } from '../tg.js';
 
 export function Disclaimer({ onAccepted }: { onAccepted: () => void }) {
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   async function accept() {
     setBusy(true);
+    setErr(null);
     try {
       await api.post('/me/accept-disclaimer');
-      haptic('success');
+      hapticSuccess();
       onAccepted();
+    } catch (e) {
+      hapticError();
+      setErr((e as Error).message);
     } finally { setBusy(false); }
   }
 
@@ -41,6 +46,7 @@ export function Disclaimer({ onAccepted }: { onAccepted: () => void }) {
         <span>You are responsible for verifying your counterparty and completing any exchange yourself.</span>
       </div>
 
+      {err && <p style={{ color: 'var(--pd-far)', fontSize: 13, margin: 0 }}>{err}</p>}
       <button className="pd-btn-block" onClick={() => void accept()} disabled={busy}>
         {busy ? 'Saving…' : 'I understand and agree'}
       </button>

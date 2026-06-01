@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { AssetSelect, Empty, fmtAmount, Icon } from '../components.js';
-import { haptic } from '../tg.js';
+import { hapticError, hapticSelection, hapticSuccess } from '../tg.js';
 import { ASSETS, type Asset, type Subscription } from '../types.js';
 
 export function Subscriptions() {
@@ -12,6 +12,7 @@ export function Subscriptions() {
   const [city, setCity] = useState('');
   const [maxRate, setMaxRate] = useState('');
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   function load() {
     api.get<{ subscriptions: Subscription[] }>('/subscriptions')
@@ -22,19 +23,24 @@ export function Subscriptions() {
 
   async function create() {
     setBusy(true);
+    setErr(null);
     try {
       await api.post('/subscriptions', {
         want_asset: want, give_assets: give,
         location_city: city.trim() || null, max_rate: maxRate.trim() || null,
       });
-      haptic('success');
+      hapticSuccess();
       setGive([]); setCity(''); setMaxRate('');
       load();
+    } catch (e) {
+      hapticError();
+      setErr((e as Error).message);
     } finally { setBusy(false); }
   }
 
   async function remove(id: number) {
     await api.del(`/subscriptions/${id}`);
+    hapticSuccess();
     load();
   }
 
@@ -45,14 +51,14 @@ export function Subscriptions() {
 
       <div className="pd-form-section">
         <span className="pd-label">Notify me about orders wanting</span>
-        <AssetSelect value={want} onChange={(a) => { setWant(a); setGive((g) => g.filter((x) => x !== a)); }} />
+        <AssetSelect value={want} onChange={(a) => { hapticSelection(); setWant(a); setGive((g) => g.filter((x) => x !== a)); }} />
 
         <span className="pd-label">Paid in any of</span>
         <div className="pd-chips pd-chips-wrap">
           {ASSETS.filter((a) => a !== want).map((a) => (
             <button key={a} type="button"
               className={`pd-chip${give.includes(a) ? ' is-on' : ''}`}
-              onClick={() => setGive((p) => p.includes(a) ? p.filter((x) => x !== a) : [...p, a])}>
+              onClick={() => { hapticSelection(); setGive((p) => p.includes(a) ? p.filter((x) => x !== a) : [...p, a]); }}>
               {a}
             </button>
           ))}
@@ -67,6 +73,7 @@ export function Subscriptions() {
         <span className="pd-label">Max rate <span className="pd-label-opt">· optional</span></span>
         <input className="pd-input" inputMode="decimal" value={maxRate} onChange={(e) => setMaxRate(e.target.value)} />
 
+        {err && <p style={{ color: 'var(--pd-far)', fontSize: 13, margin: '8px 0 0' }}>{err}</p>}
         <button className="pd-btn-block" disabled={busy} onClick={() => void create()}>
           <Icon name="bell" size={17} />Create alert
         </button>
@@ -95,7 +102,7 @@ export function Subscriptions() {
                   </span>
                 </div>
               </div>
-              <button className="pd-iconbtn" onClick={() => void remove(s.id)}>
+              <button className="pd-iconbtn" onClick={() => void remove(s.id)} aria-label="Remove alert">
                 <Icon name="close" size={16} />
               </button>
             </div>

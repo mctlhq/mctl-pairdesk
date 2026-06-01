@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api.js';
 import { AssetSelect, fmtAmount, Icon, OrderCard, PD_GLYPH, PD_METHOD_LABEL, RateChip, Stepper } from '../components.js';
-import { haptic } from '../tg.js';
+import { hasMainButton, hapticError, hapticSelection, hapticSuccess, setMainButton, showBackButton } from '../tg.js';
 import { ASSETS, type Asset, PAYMENT_METHODS } from '../types.js';
 import type { Order } from '../types.js';
 
@@ -20,7 +20,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   const [opts, setOpts] = useState<OptDraft[]>([{ asset: 'RUB', max_rate: '', payment_methods: [] }]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  // tracks which give-option indices have a rate outside ±10% of CBR
+  // tracks which give-option indices have a rate outside ±10% of the market reference
   const [rateViolations, setRateViolations] = useState<Record<number, boolean>>({});
   const hasRateViolation = Object.values(rateViolations).some(Boolean);
 
@@ -28,15 +28,18 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
     ASSETS.filter((a) => a !== wantAsset && !opts.some((o, i) => i !== idx && o.asset === a));
 
   function updateOpt(i: number, patch: Partial<OptDraft>) {
+    hapticSelection();
     setOpts((prev) => prev.map((o, idx) => (idx === i ? { ...o, ...patch } : o)));
   }
   function toggleMethod(i: number, m: string) {
+    hapticSelection();
     setOpts((prev) => prev.map((o, idx) =>
       idx === i ? { ...o, payment_methods: o.payment_methods.includes(m) ? o.payment_methods.filter((x) => x !== m) : [...o.payment_methods, m] } : o));
   }
   function addOpt() {
     const free = availFor(opts.length);
     if (free.length === 0) return;
+    hapticSelection();
     setOpts((p) => [...p, { asset: free[0]!, max_rate: '', payment_methods: [] }]);
   }
 
@@ -50,13 +53,46 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
         location_city: city.trim() || null, comment: comment.trim() || null,
         give_options: opts.map((o) => ({ asset: o.asset, max_rate: o.max_rate.trim() || null, payment_methods: o.payment_methods })),
       });
-      haptic('success');
+      hapticSuccess();
       onCreated(order.id);
     } catch (e) {
-      haptic('error');
+      hapticError();
       setErr(e instanceof ApiError ? e.message : (e as Error).message);
     } finally { setBusy(false); }
   }
+
+  const nextEnabled = step === 1 ? amountValid : step === 2 ? !hasRateViolation : !busy;
+  const nextText = step === 1 ? 'Continue' : step === 2 ? (hasRateViolation ? 'Fix rate to continue' : 'Continue') : (busy ? 'Publishing...' : 'Publish request');
+
+  function primaryAction() {
+    if (step === 1) {
+      if (!amountValid) { hapticError(); return; }
+      hapticSelection();
+      setStep(2);
+      return;
+    }
+    if (step === 2) {
+      if (hasRateViolation) { hapticError(); return; }
+      hapticSelection();
+      setStep(3);
+      return;
+    }
+    void submit();
+  }
+
+  useEffect(() => {
+    return setMainButton({
+      text: nextText,
+      enabled: nextEnabled,
+      loading: busy,
+      onClick: primaryAction,
+    });
+  }, [busy, nextEnabled, nextText, step, amountValid, hasRateViolation, wantAsset, wantAmount, city, comment, opts]);
+
+  useEffect(() => {
+    if (step === 1) return undefined;
+    return showBackButton(() => setStep((s) => Math.max(1, s - 1)));
+  }, [step]);
 
   const previewOrder: Order = {
     id: 0, want_asset: wantAsset, want_amount: wantAmount || '0', status: 'active',
@@ -84,6 +120,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
               <span className="pd-form-title">I want to receive</span>
             </div>
             <AssetSelect value={wantAsset} onChange={(a) => {
+              hapticSelection();
               setWantAsset(a);
               setOpts((prev) => prev.map((o) =>
                 o.asset !== a ? o : {
@@ -105,7 +142,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
               <input className="pd-input" placeholder="e.g. Bar" value={city} onChange={(e) => setCity(e.target.value)} />
             </div>
           </div>
-          <button className="pd-btn-block" disabled={!amountValid} onClick={() => setStep(2)}>Continue</button>
+          {!hasMainButton() && <button className="pd-btn-block" disabled={!amountValid} onClick={primaryAction}>Continue</button>}
         </div>
       )}
 
@@ -116,7 +153,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
               <span className="pd-form-n pd-num">2</span>
               <span className="pd-form-title">I will give — one of these</span>
             </div>
-            <p className="pd-form-sub">Add the assets you can pay with. Rate is optional; we'll show how it compares to ЦБ РФ.</p>
+            <p className="pd-form-sub">Add the assets you can pay with. Rate is optional; we'll show how it compares to the market reference.</p>
             <div className="pd-give-editors">
               {opts.map((o, i) => (
                 <div className="pd-give-editor" key={i}>
@@ -163,9 +200,9 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={() => setStep(1)}>Back</button>
-            <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={hasRateViolation} onClick={() => setStep(3)}>
+            {!hasMainButton() && <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={hasRateViolation} onClick={primaryAction}>
               {hasRateViolation ? 'Fix rate to continue' : 'Continue'}
-            </button>
+            </button>}
           </div>
         </div>
       )}
@@ -188,9 +225,9 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
           {err && <p style={{ color: 'var(--pd-far)', fontSize: 13, margin: '0 0 8px' }}>{err}</p>}
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={() => setStep(2)}>Back</button>
-            <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={busy} onClick={() => void submit()}>
+            {!hasMainButton() && <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={busy} onClick={primaryAction}>
               {busy ? 'Publishing…' : 'Publish request'}
-            </button>
+            </button>}
           </div>
         </div>
       )}
@@ -237,7 +274,7 @@ function RatePreview({ base, quote, userRate, wantAmount, onViolation }: {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div className="pd-rate-preview">
-        <span className="pd-rate-ref">ЦБ РФ ≈ <span className="pd-num">{fmtAmount(ref)}</span> {quote}/{base}</span>
+        <span className="pd-rate-ref">Market ref. ≈ <span className="pd-num">{fmtAmount(ref)}</span> {quote}/{base}</span>
         {delta != null && <RateChip delta={delta.toFixed(1)} style="chip" />}
       </div>
       {total != null && (
@@ -247,7 +284,7 @@ function RatePreview({ base, quote, userRate, wantAmount, onViolation }: {
       )}
       {violated && (
         <p style={{ margin: 0, fontSize: 12, color: 'var(--pd-far)', fontWeight: 600 }}>
-          Rate deviates {delta! > 0 ? '+' : ''}{delta!.toFixed(1)}% from ЦБ РФ — maximum ±{MAX_DEVIATION_PCT}%. Adjust the rate to continue.
+          Rate deviates {delta! > 0 ? '+' : ''}{delta!.toFixed(1)}% from market reference — maximum ±{MAX_DEVIATION_PCT}%. Adjust the rate to continue.
         </p>
       )}
     </div>

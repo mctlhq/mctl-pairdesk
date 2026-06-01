@@ -25,12 +25,12 @@ App
    ├─ TgHeader        brand | BackButton (pushed views) | ⋯ ✕
    ├─ Screen (scroll)
    │  ├─ OrderBook    h1 + count · ChipGroup×2 + city field · OrderCard list · Load more
-   │  ├─ OrderDetail  hero amount · MakerCard(Vetted) · GiveOptions · Note · [responder|maker]
+   │  ├─ OrderDetail  hero amount · MakerCard(Trusted) · GiveOptions · Note · [responder|maker]
    │  ├─ CreateOrder  StepForm 1→2→3  (want → give options → note+preview)
    │  ├─ MyOrders     OrderCard list → maker detail
    │  ├─ Alerts       subscription form + list
    │  └─ Profile      identity · stats · contact-privacy note
-   ├─ TabBar          Book · Create · Orders · Alerts · Profile   (top-level only)
+   ├─ TabBar          Book · Create · Deals · Profile   (top-level only)
    └─ MainButton      primary CTA, native (Respond / Continue / Publish)
 ```
 
@@ -41,16 +41,16 @@ App
   tabular amount, status `Badge`.
 - **ChipGroup** — segmented filters/toggles. Selected = filled accent; `is-on` only.
   Used for asset filters, payment methods, alert assets.
-- **RateChip** — `delta%` vs CBR with semantic color. States: `good` ≥ +2% (above market,
+- **RateChip** — `delta%` vs market reference with semantic color. States: `good` ≥ +2% (above market,
   green), `fair` ±, `far` ≤ −10% (far below market, amber — the "may be flagged" case).
   Three renderings (Tweak): `chip` (dot + word + %), `bar` (mini gauge), `badge` (compact %).
 - **StepForm** — `Stepper` dots (active / done-check), one section per step in multi mode,
   all sections stacked in single-page mode. The Telegram **MainButton** is the only
   forward control: `Continue` (disabled until amount valid) → `Continue` → `Publish`.
-  Single-page collapses to one `Publish`. Live CBR `RatePreview` under each rate input.
+  Single-page collapses to one `Publish`. Live market-reference `RatePreview` under each rate input.
 - **StatusBadge** — pill, lowercase, semantic color from status (`active` green,
   `reserved/accepted` accent, `rejected/cancelled/expired` red, else neutral).
-- **MakerCard / Maker** — avatar (initial) · name · ★ rating · deals count. `Vetted`
+- **MakerCard / Maker** — avatar (initial) · name · ★ rating · deals count. `Trusted`
   shield reinforces the closed-community trust model.
 
 ## Interaction patterns
@@ -63,7 +63,7 @@ App
 - **Review flow** (maker): inline Accept / Reject per response; on Accept the contact card
   reveals (Telegram, phone) with the "settle directly, mark complete" note.
 - **Create**: segmented asset selector, large amount field with inline glyph + code,
-  rate input shows CBR reference + deviation chip in real time; step 3 renders a live
+  rate input shows market reference + deviation chip in real time; step 3 renders a live
   `OrderCard` preview before Publish; on publish → maker detail with "published" banner.
 - **States to build next**: skeleton rows for OrderBook load, empty states (done),
   optimistic toasts, and the remaining screens (Disclaimer, Pending, Admin) — all reuse
