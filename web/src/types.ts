@@ -1,6 +1,6 @@
 export type Asset = 'EUR' | 'RUB' | 'USDT';
 export const ASSETS: Asset[] = ['EUR', 'RUB', 'USDT'];
-export const PAYMENT_METHODS = ['bank_transfer', 'cash', 'TRC20', 'ERC20', 'TON', 'other'] as const;
+export const PAYMENT_METHODS = ['bank_transfer', 'cash', 'wirex', 'wise', 'TRC20', 'ERC20', 'TON', 'other'] as const;
 
 export type UserStatus = 'pending' | 'approved' | 'rejected' | 'blocked';
 export type UserRole = 'user' | 'trusted_user' | 'moderator' | 'admin';

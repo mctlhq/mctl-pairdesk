@@ -13,7 +13,7 @@ import {
   serializeOrder,
 } from './serializers.js';
 
-const PAYMENT_METHODS = new Set(['bank_transfer', 'cash', 'TRC20', 'ERC20', 'TON', 'other']);
+const PAYMENT_METHODS = new Set(['bank_transfer', 'cash', 'wirex', 'wise', 'TRC20', 'ERC20', 'TON', 'other']);
 
 export interface GiveOptionInput {
   asset: string;
