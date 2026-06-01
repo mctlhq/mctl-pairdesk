@@ -20,7 +20,7 @@ export function MyOrders({ onOpen }: { onOpen: (id: number) => void }) {
         <Empty text="No orders yet. Create one from the Order book tab." />
       ) : (
         <div className="pd-list">
-          {orders.map((o) => <OrderCard key={o.id} order={o} onOpen={onOpen} />)}
+          {orders.map((o) => <OrderCard key={o.id} order={o} onOpen={onOpen} variant="rate" />)}
         </div>
       )}
     </div>

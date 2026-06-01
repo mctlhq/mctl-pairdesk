@@ -143,7 +143,7 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
                   <span className="pd-maker-sub"><Badge status={d.status} /></span>
                 </span>
                 <span className="pd-spacer" />
-                {d.status === 'requested' ? (
+                {d.status === 'requested' && order.status === 'active' ? (
                   <span className="pd-resp-actions">
                     <button className="pd-btn-ghost-sm" disabled={busy} onClick={() => void run(() => api.post(`/deals/${d.id}/reject`), 'Rejected.')}>Reject</button>
                     <button className="pd-btn-accent-sm" disabled={busy} onClick={() => void run(() => api.post(`/deals/${d.id}/accept`), 'Accepted — contacts shared.')}>Accept</button>
