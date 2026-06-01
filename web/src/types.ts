@@ -60,9 +60,12 @@ export interface Deal {
   creator_user_id: number;
   responder_user_id: number;
   created_at: string;
+  responder_username?: string | null;
+  responder_name?: string | null;
+  responder_telegram_id?: number | null;
   contacts_revealed?: boolean;
-  creator_contact?: { username: string | null; phone: string | null; contact: string | null };
-  responder_contact?: { username: string | null; phone: string | null; contact: string | null };
+  creator_contact?: { telegram_id: number; username: string | null; phone: string | null; contact: string | null };
+  responder_contact?: { telegram_id: number; username: string | null; phone: string | null; contact: string | null };
   // present in the my-deals list shape
   want_asset?: Asset;
   want_amount?: string;
