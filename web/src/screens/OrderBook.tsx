@@ -59,7 +59,7 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
         <span className="pd-result-count">
           {!loading && <><span className="pd-num">{orders.length}</span> open</>}
           {members != null && (
-            <><span className="pd-dot-sep" style={{ margin: '0 4px' }}>·</span>
+            <><span className="pd-dot-sep">·</span>
             <Icon name="user" size={12} cls="pd-mut-ic" />
             <span className="pd-num">{members}</span></>
           )}

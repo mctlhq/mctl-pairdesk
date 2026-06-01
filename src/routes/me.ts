@@ -52,26 +52,25 @@ meRouter.get('/me', async (req, res, next) => {
   }
 });
 
-// Community-level stats — approved member count + open order count.
-// Scoped to the caller's community; response is cached in-process for 5 min.
-let statsCache: { members: number; orders_open: number; cachedAt: number } | null = null;
+// Community-level stats — approved member count.
+// Cached per communityId; response is cached in-process for 5 min.
+const statsCache = new Map<number, { members: number; cachedAt: number }>();
 const STATS_TTL_MS = 5 * 60_000;
 
 meRouter.get('/community/stats', async (req, res, next) => {
   try {
     const ctx = getCtx(req);
-    if (statsCache && Date.now() - statsCache.cachedAt < STATS_TTL_MS) {
-      return res.json(statsCache);
+    const hit = statsCache.get(ctx.communityId);
+    if (hit && Date.now() - hit.cachedAt < STATS_TTL_MS) {
+      return res.json({ members: hit.members });
     }
-    const { rows } = await pool.query<{ members: string; orders_open: string }>(
-      `SELECT
-         (SELECT count(*) FROM users  WHERE community_id = $1 AND status = 'approved') AS members,
-         (SELECT count(*) FROM orders WHERE community_id = $1 AND status = 'active' AND deleted_at IS NULL) AS orders_open`,
+    const { rows } = await pool.query<{ members: string }>(
+      `SELECT count(*) AS members FROM users WHERE community_id = $1 AND status = 'approved'`,
       [ctx.communityId],
     );
-    const r = rows[0]!;
-    statsCache = { members: Number(r.members), orders_open: Number(r.orders_open), cachedAt: Date.now() };
-    return res.json(statsCache);
+    const members = Number(rows[0]!.members);
+    statsCache.set(ctx.communityId, { members, cachedAt: Date.now() });
+    return res.json({ members });
   } catch (err) {
     return next(err);
   }
