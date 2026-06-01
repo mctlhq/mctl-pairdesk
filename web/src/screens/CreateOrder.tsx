@@ -27,8 +27,9 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   const availFor = (idx: number): Asset[] =>
     ASSETS.filter((a) => a !== wantAsset && !opts.some((o, i) => i !== idx && o.asset === a));
 
+  // No haptic here: updateOpt also backs the free-text rate input, where a buzz
+  // on every keystroke is noise. Discrete callers (asset select) buzz themselves.
   function updateOpt(i: number, patch: Partial<OptDraft>) {
-    hapticSelection();
     setOpts((prev) => prev.map((o, idx) => (idx === i ? { ...o, ...patch } : o)));
   }
   function toggleMethod(i: number, m: string) {
@@ -162,7 +163,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                       {[o.asset, ...availFor(i)].filter((v, idx, arr) => arr.indexOf(v) === idx).map((a) => (
                         <button key={a} type="button"
                           className={`pd-segmini-opt${o.asset === a ? ' is-on' : ''}`}
-                          onClick={() => updateOpt(i, { asset: a as Asset })}>
+                          onClick={() => { hapticSelection(); updateOpt(i, { asset: a as Asset }); }}>
                           {a}
                         </button>
                       ))}

@@ -140,10 +140,6 @@ export function syncTelegramEnvironment(): () => void {
   };
 }
 
-export function useTelegramTheme(): Record<string, string> {
-  return getThemeParams();
-}
-
 export function showBackButton(cb: () => void): () => void {
   if (!wa) return () => {};
   wa.BackButton.onClick(cb);
@@ -154,9 +150,15 @@ export function showBackButton(cb: () => void): () => void {
   };
 }
 
-export function hideBackButton(): void {
-  wa?.BackButton.hide();
-}
+// Telegram exposes a single MainButton. React effects re-run the setter on every
+// keystroke (text/enabled change with the form), and React runs an effect's
+// cleanup *before* the next setup. A cleanup that calls hide() therefore produces
+// a hide()→show() flicker on each re-run. We avoid it by (a) tracking the one
+// active onClick so re-registration never stacks handlers, and (b) deferring the
+// hide one frame so an immediately-following setMainButton can cancel it — a real
+// teardown (navigating to a screen with no MainButton) still hides next frame.
+let activeOnClick: (() => void) | null = null;
+let pendingHide: number | null = null;
 
 export function setMainButton({
   text,
@@ -170,29 +172,31 @@ export function setMainButton({
   loading?: boolean;
 }): () => void {
   if (!wa) return () => {};
-  wa.MainButton.setText(text);
-  wa.MainButton.setParams?.({
+  const button = wa.MainButton;
+  if (pendingHide != null) { cancelAnimationFrame(pendingHide); pendingHide = null; }
+  if (activeOnClick) button.offClick(activeOnClick);
+  activeOnClick = onClick;
+  button.setText(text);
+  button.setParams?.({
     text,
     color: getComputedStyle(document.documentElement).getPropertyValue('--pd-accent').trim() || undefined,
     text_color: getComputedStyle(document.documentElement).getPropertyValue('--pd-accent-text').trim() || undefined,
     is_active: enabled,
     is_visible: true,
   });
-  if (enabled) wa.MainButton.enable(); else wa.MainButton.disable();
-  if (loading) wa.MainButton.showProgress(false); else wa.MainButton.hideProgress();
-  wa.MainButton.onClick(onClick);
-  wa.MainButton.show();
+  if (enabled) button.enable(); else button.disable();
+  if (loading) button.showProgress(false); else button.hideProgress();
+  button.onClick(onClick);
+  button.show();
   return () => {
-    wa.MainButton.offClick(onClick);
-    wa.MainButton.hideProgress();
-    wa.MainButton.hide();
+    if (pendingHide != null) cancelAnimationFrame(pendingHide);
+    pendingHide = requestAnimationFrame(() => {
+      pendingHide = null;
+      if (activeOnClick) { button.offClick(activeOnClick); activeOnClick = null; }
+      button.hideProgress();
+      button.hide();
+    });
   };
-}
-
-export function hideMainButton(): void {
-  if (!wa) return;
-  wa.MainButton.hideProgress();
-  wa.MainButton.hide();
 }
 
 export function hasMainButton(): boolean {
@@ -201,10 +205,6 @@ export function hasMainButton(): boolean {
 
 export function hapticSelection(): void {
   wa?.HapticFeedback?.selectionChanged();
-}
-
-export function hapticImpact(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft' = 'light'): void {
-  wa?.HapticFeedback?.impactOccurred(style);
 }
 
 export function hapticSuccess(): void {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api.js';
 import { Badge, fmtAmount, GiveRow, Icon, Maker, PD_GLYPH } from '../components.js';
 import { hasMainButton, hapticError, hapticSuccess, setMainButton, showBackButton } from '../tg.js';
@@ -195,6 +195,10 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
 
 function ContactPanel({ dealId, me, onComplete, busy, done = false }: { dealId: number; me: Me; onComplete: () => void; busy: boolean; done?: boolean }) {
   const [deal, setDeal] = useState<Deal | null>(null);
+  // Parent passes a fresh onComplete arrow each render; hold the latest in a ref
+  // so the MainButton effect depends only on real state, not the closure identity.
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
   useEffect(() => { api.get<Deal>(`/deals/${dealId}`).then(setDeal).catch(() => setDeal(null)); }, [dealId]);
   useEffect(() => {
     if (done || !deal?.contacts_revealed) return undefined;
@@ -202,9 +206,9 @@ function ContactPanel({ dealId, me, onComplete, busy, done = false }: { dealId: 
       text: busy ? 'Completing...' : 'Mark complete',
       enabled: !busy,
       loading: busy,
-      onClick: onComplete,
+      onClick: () => onCompleteRef.current(),
     });
-  }, [busy, deal?.contacts_revealed, done, onComplete]);
+  }, [busy, deal?.contacts_revealed, done]);
   if (!deal) return <p className="pd-muted-row">Loading contact…</p>;
   if (!deal.contacts_revealed) return <p className="pd-muted-row">Contact details unavailable.</p>;
   const cp = me.id === deal.creator_user_id ? deal.responder_contact : deal.creator_contact;
