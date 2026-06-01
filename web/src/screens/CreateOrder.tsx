@@ -116,7 +116,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
               <span className="pd-form-n pd-num">2</span>
               <span className="pd-form-title">I will give — one of these</span>
             </div>
-            <p className="pd-form-sub">Add the assets you can pay with. Rate is optional; we'll show how it compares to CBR.</p>
+            <p className="pd-form-sub">Add the assets you can pay with. Rate is optional; we'll show how it compares to ЦБ РФ.</p>
             <div className="pd-give-editors">
               {opts.map((o, i) => (
                 <div className="pd-give-editor" key={i}>
@@ -133,7 +133,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                     <span className="pd-spacer" />
                     {opts.length > 1 && <button className="pd-btn-ghost-sm" onClick={() => {
                       setOpts((p) => p.filter((_, idx) => idx !== i));
-                      setRateViolations((p) => { const n = { ...p }; delete n[i]; return n; });
+                      setRateViolations({});  // RatePreview effects repopulate for remaining options
                     }}>Remove</button>}
                   </div>
                   <span className="pd-label">Max rate <span className="pd-label-opt">· {o.asset}/{wantAsset} · optional</span></span>

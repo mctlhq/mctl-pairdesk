@@ -121,7 +121,7 @@ export function RateChip({
     return (
       <span className={`pd-ratebar pd-rate-${st.key}`}>
         <span className="pd-ratebar-fill" style={{ width: `${w}%` }} />
-        <span className="pd-ratebar-label pd-num">{pct} vs CBR</span>
+        <span className="pd-ratebar-label pd-num">{pct} vs ЦБ РФ</span>
       </span>
     );
   }

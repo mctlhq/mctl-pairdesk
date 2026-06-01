@@ -128,7 +128,7 @@ export async function createOrder(
     if (Math.abs(delta) > MAX_RATE_DEVIATION_PCT) {
       throw new AppError(
         400,
-        `Rate for ${opt.asset} deviates ${delta > 0 ? '+' : ''}${delta.toFixed(1)}% from market (CBR ≈ ${ref.rate} ${opt.asset}/${n.wantAsset}). Maximum allowed: ±${MAX_RATE_DEVIATION_PCT}%.`,
+        `Rate for ${opt.asset} deviates ${delta > 0 ? '+' : ''}${delta.toFixed(1)}% from market (ЦБ РФ ≈ ${ref.rate} ${opt.asset}/${n.wantAsset}). Maximum allowed: ±${MAX_RATE_DEVIATION_PCT}%.`,
       );
     }
   }
