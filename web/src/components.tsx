@@ -91,7 +91,7 @@ export function AssetTag({ asset }: { asset: string }) {
 
 // ---- Status badge ----------------------------------------------------------
 export function Badge({ status }: { status: string }) {
-  return <span className={`pd-badge pd-badge-${status}`}>{status}</span>;
+  return <span className={`pd-badge pd-badge-${status}`} aria-label={`Status: ${status}`}>{status}</span>;
 }
 
 // ---- Rate chip -------------------------------------------------------------
@@ -121,7 +121,7 @@ export function RateChip({
     return (
       <span className={`pd-ratebar pd-rate-${st.key}`}>
         <span className="pd-ratebar-fill" style={{ width: `${w}%` }} />
-        <span className="pd-ratebar-label pd-num">{pct} vs ЦБ РФ</span>
+        <span className="pd-ratebar-label pd-num">{pct} vs Market ref.</span>
       </span>
     );
   }
@@ -133,7 +133,7 @@ export function RateChip({
     );
   }
   return (
-    <span className={`pd-ratechip pd-rate-${st.key}`}>
+    <span className={`pd-ratechip pd-rate-${st.key}`} aria-label={`Market reference: ${st.label}, ${pct}`}>
       <span className="pd-ratedot" />
       {!compact && <span className="pd-rate-word">{st.label}</span>}
       <span className="pd-num pd-rate-pct">{pct}</span>
@@ -194,26 +194,20 @@ export function GiveRow({
 
   return (
     <div className="pd-give">
-      <div className="pd-give-head">
-        <AssetTag asset={g.asset} />
-        {g.max_rate && (
-          <span className="pd-give-rate pd-num">
-            {fmtAmount(g.max_rate)}{' '}
-            <span className="pd-give-unit">{g.asset}/{base}</span>
-          </span>
-        )}
-        <span className="pd-spacer" />
-        <RateChip delta={g.delta_percent} style={rateStyle} />
+      <div className="pd-give-grid">
+        <span className="pd-field-label">Will give</span>
+        <span className="pd-field-value"><AssetTag asset={g.asset} /></span>
+        <span className="pd-field-label">Rate</span>
+        <span className="pd-field-value pd-num">
+          {g.max_rate ? `${fmtAmount(g.max_rate)} ${g.asset}/${base}` : 'Not set'}
+        </span>
+        <span className="pd-field-label">Total</span>
+        <span className="pd-field-value pd-num">
+          {total != null ? `${fmtAmount(total)} ${g.asset}` : '—'}
+        </span>
+        <span className="pd-field-label">Market ref.</span>
+        <span className="pd-field-value"><RateChip delta={g.delta_percent} style={rateStyle} /></span>
       </div>
-      {total != null && (
-        <div style={{ fontSize: 13, color: 'var(--pd-text-2)', marginBottom: 6 }}>
-          Total ≈{' '}
-          <span className="pd-num" style={{ fontWeight: 700 }}>
-            {fmtAmount(total)}
-          </span>{' '}
-          {g.asset}
-        </div>
-      )}
       {showMethods && (
         <div className="pd-methods">
           {g.payment_methods.map((m) => (
@@ -249,50 +243,69 @@ export function OrderCard({
   onOpen,
   variant = 'standard',
   rateStyle = 'chip',
+  highlightAsset,
 }: {
   order: Order;
   onOpen?: (id: number) => void;
   variant?: OrderCardVariant;
   rateStyle?: RateStyle;
+  // When the book is filtered by Offers, headline the give option the user
+  // filtered for instead of give_options[0] — otherwise the card shows a
+  // non-matching asset and hides the amount/rate that produced the match.
+  highlightAsset?: Asset;
 }) {
   const tap = onOpen ? () => onOpen(order.id) : undefined;
 
   if (variant === 'outcome') {
     const qty = Number.parseFloat(order.want_amount);
+    const primary = (highlightAsset && order.give_options.find((g) => g.asset === highlightAsset))
+      ?? order.give_options[0] ?? null;
+    const primaryRate = primary?.max_rate ? Number.parseFloat(primary.max_rate) : null;
+    const primaryTotal = primary && primaryRate != null && Number.isFinite(qty) && Number.isFinite(primaryRate) ? qty * primaryRate : null;
+    // The card pairs Rate + Market-ref with give_options[0]. When another option
+    // has a strictly better deviation, surface it so the spread isn't hidden
+    // (the responder would otherwise only see it after tapping into the detail).
+    const primaryDelta = primary?.delta_percent != null ? Number.parseFloat(primary.delta_percent) : null;
+    const best = bestDelta(order);
+    const bestNum = best != null ? Number.parseFloat(best) : null;
+    const showBest = order.give_options.length > 1 && bestNum != null && (primaryDelta == null || bestNum > primaryDelta);
     return (
       <button className="pd-card pd-card-outcome" onClick={tap}>
-        <div className="pd-oc-offered">
-          <Glyph asset={order.want_asset} size="md" />
-          <span className="pd-oc-amt pd-num">{fmtAmount(order.want_amount)}</span>
-          <span className="pd-oc-code">{order.want_asset}</span>
-        </div>
-        <div className="pd-oc-arrow"><span className="pd-oc-arrow-sym" aria-hidden="true">↓</span></div>
-        <div className="pd-oc-gives">
-          {order.give_options.map((g, i) => {
-            const rate = g.max_rate ? Number.parseFloat(g.max_rate) : null;
-            const total = rate != null && Number.isFinite(qty) && Number.isFinite(rate) ? qty * rate : null;
-            return (
-              <div key={g.id} className="pd-oc-give-row">
-                {i > 0 && <span className="pd-oc-or">or</span>}
-                <div className="pd-oc-give">
-                  <Glyph asset={g.asset} size="md" />
-                  {total != null ? (
-                    <span className="pd-oc-amt pd-num">{fmtAmount(total)}</span>
-                  ) : (
-                    <span className="pd-oc-amt pd-oc-amt-tbd">—</span>
-                  )}
-                  <span className="pd-oc-code">{g.asset}</span>
-                  {g.payment_methods.length > 0 && (
-                    <span className="pd-oc-methods">
-                      {g.payment_methods.map((m) => (
-                        <span className="pd-method" key={m}>{PD_METHOD_LABEL[m] ?? m}</span>
-                      ))}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        <div className="pd-order-summary">
+          <div className="pd-order-line pd-order-line-strong">
+            <span className="pd-order-label">Wants</span>
+            <span className="pd-order-value">
+              <Glyph asset={order.want_asset} size="md" />
+              <span className="pd-num">{fmtAmount(order.want_amount)}</span>
+              <span>{order.want_asset}</span>
+            </span>
+          </div>
+          <div className="pd-order-line">
+            <span className="pd-order-label">Gives</span>
+            <span className="pd-order-value">
+              {primary ? (
+                <>
+                  <Glyph asset={primary.asset} size="sm" />
+                  <span className="pd-num">{primaryTotal != null ? fmtAmount(primaryTotal) : '—'}</span>
+                  <span>{primary.asset}</span>
+                  {order.give_options.length > 1 && <span className="pd-order-alt">+{order.give_options.length - 1} option</span>}
+                </>
+              ) : '—'}
+            </span>
+          </div>
+          <div className="pd-order-line">
+            <span className="pd-order-label">Rate</span>
+            <span className="pd-order-value pd-num">
+              {primary?.max_rate ? `${fmtAmount(primary.max_rate)} ${primary.asset}/${order.want_asset}` : 'Not set'}
+            </span>
+          </div>
+          <div className="pd-order-line">
+            <span className="pd-order-label">Market ref.</span>
+            <span className="pd-order-value">
+              {primary ? <RateChip delta={primary.delta_percent} style="chip" /> : <span className="pd-rate-none">no rate</span>}
+              {showBest && <span className="pd-order-alt">best {bestNum! > 0 ? '+' : ''}{bestNum!.toFixed(1)}%</span>}
+            </span>
+          </div>
         </div>
         <div className="pd-card-divider" />
         <div className="pd-row pd-card-foot">

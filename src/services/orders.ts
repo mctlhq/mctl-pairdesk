@@ -261,7 +261,9 @@ export async function listOrders(
     params,
   );
   if (orders.length === 0) return { orders: [], next_cursor: null };
-  const assembled = await assembleOrders(orders);
+  // withSnapshots: the order-book cards surface the per-option market-reference
+  // deviation, so the list must carry the rate snapshots (not just the detail view).
+  const assembled = await assembleOrders(orders, true);
   // Emit next_cursor only when a full page was returned — i.e. there may be more.
   const next_cursor = orders.length === limit ? (orders[orders.length - 1]?.id ?? null) : null;
   return { orders: assembled, next_cursor };
@@ -276,7 +278,8 @@ export async function listMyOrders(communityId: number, userId: number): Promise
     [communityId, userId],
   );
   if (rows.length === 0) return [];
-  return assembleOrders(rows);
+  // Same as listOrders: "My orders" cards show the market-reference chip too.
+  return assembleOrders(rows, true);
 }
 
 /** Full detail for a single order (any status), or null if not found / deleted. */
@@ -302,8 +305,12 @@ async function assembleOrders(
   const makerIds = [...new Set(orders.map((o) => o.created_by_user_id))];
 
   const { rows: options } = await pool.query<GiveOptionRow & { order_id: number }>(
+    // ORDER BY id keeps give_options in stable creation order: the UI surfaces
+    // give_options[0] as the headline, so an undefined row order would let the
+    // same order flip its headline option (and "best ±X%" badge) across requests.
     `SELECT id, order_id, asset, max_rate, payment_methods
-       FROM order_give_options WHERE order_id = ANY($1)`,
+       FROM order_give_options WHERE order_id = ANY($1)
+      ORDER BY order_id, id`,
     [ids],
   );
   const { rows: makers } = await pool.query<PublicCounterparty>(

@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from './api.js';
 import { Icon } from './components.js';
-import { isTelegram } from './tg.js';
+import { hapticSelection, isTelegram } from './tg.js';
 import type { Me, UserRole } from './types.js';
 import { Disclaimer } from './screens/Disclaimer.js';
 import { Pending } from './screens/Pending.js';
 import { OrderBook } from './screens/OrderBook.js';
 import { OrderDetail } from './screens/OrderDetail.js';
 import { CreateOrder } from './screens/CreateOrder.js';
-import { MyOrders } from './screens/MyOrders.js';
-import { MyDeals } from './screens/MyDeals.js';
-import { Subscriptions } from './screens/Subscriptions.js';
+import { Deals } from './screens/Deals.js';
 import { Profile } from './screens/Profile.js';
-import { Admin } from './screens/Admin.js';
 
-export type Tab = 'book' | 'create' | 'mine' | 'deals' | 'subs' | 'profile' | 'admin';
+export type Tab = 'book' | 'create' | 'deals' | 'profile';
 
 function rank(role: UserRole): number {
   return { user: 0, trusted_user: 1, moderator: 2, admin: 3 }[role];
@@ -78,11 +75,8 @@ export function App() {
   const tabs: { id: Tab; label: string; icon: string; show: boolean }[] = [
     { id: 'book',    label: 'Book',    icon: 'book',    show: true      },
     { id: 'create',  label: 'Create',  icon: 'create',  show: true      },
-    { id: 'mine',    label: 'Orders',  icon: 'orders',  show: true      },
     { id: 'deals',   label: 'Deals',   icon: 'arrowSwap', show: true    },
-    { id: 'subs',    label: 'Alerts',  icon: 'bell',    show: true      },
     { id: 'profile', label: 'Profile', icon: 'user',    show: true      },
-    { id: 'admin',   label: 'Admin',   icon: 'shield',  show: canAdmin  },
   ];
 
   return (
@@ -90,18 +84,20 @@ export function App() {
       <main className="pd-content">
         {tab === 'book'    && <OrderBook onOpen={setDetailOrderId} />}
         {tab === 'create'  && <CreateOrder onCreated={(id) => setDetailOrderId(id)} />}
-        {tab === 'mine'    && <MyOrders onOpen={setDetailOrderId} />}
-        {tab === 'deals'   && <MyDeals onOpen={setDetailOrderId} me={me} />}
-        {tab === 'subs'    && <Subscriptions />}
-        {tab === 'profile' && <Profile me={me} onSaved={() => void loadMe()} />}
-        {tab === 'admin'   && canAdmin && <Admin />}
+        {tab === 'deals'   && <Deals onOpen={setDetailOrderId} me={me} />}
+        {tab === 'profile' && <Profile me={me} canAdmin={canAdmin} onSaved={() => void loadMe()} />}
       </main>
       <nav className="pd-tabbar">
         {tabs.filter((t) => t.show).map((t) => (
           <button
             key={t.id}
             className={t.id === tab ? 'pd-tab is-active' : 'pd-tab'}
-            onClick={() => setTab(t.id)}
+            onClick={() => {
+              if (t.id !== tab) hapticSelection();
+              setTab(t.id);
+            }}
+            aria-label={t.label}
+            aria-current={t.id === tab ? 'page' : undefined}
           >
             <Icon name={t.icon} size={20} stroke={1.6} />
             <span className="pd-tab-label">{t.label}</span>

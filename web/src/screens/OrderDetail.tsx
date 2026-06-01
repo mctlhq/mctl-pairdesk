@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api.js';
 import { Badge, fmtAmount, GiveRow, Icon, Maker, PD_GLYPH } from '../components.js';
-import { haptic, showBackButton } from '../tg.js';
+import { hasMainButton, hapticError, hapticSuccess, setMainButton, showBackButton } from '../tg.js';
 import type { Deal, Me, Order } from '../types.js';
 
 export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; onBack: () => void }) {
@@ -9,6 +9,7 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
   const [deals, setDeals] = useState<Deal[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [o, d] = await Promise.all([
@@ -19,26 +20,67 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
     setDeals(d.deals);
   }, [orderId]);
 
-  useEffect(() => { void load(); }, [load]);
+  // Initial fetch needs its own error path — a failed first load would otherwise
+  // leave the screen stuck on "Loading…" with no way out. run() only covers actions.
+  const loadInitial = useCallback(() => {
+    setLoadErr(null);
+    load().catch((e) => setLoadErr(e instanceof ApiError ? e.message : (e as Error).message));
+  }, [load]);
+
+  useEffect(() => { loadInitial(); }, [loadInitial]);
   useEffect(() => showBackButton(onBack), [onBack]);
 
   async function run(fn: () => Promise<unknown>, ok: string) {
     setBusy(true); setMsg(null);
     try {
       await fn();
-      haptic('success');
+      hapticSuccess();
       setMsg(ok);
       await load();
     } catch (e) {
-      haptic('error');
+      hapticError();
       setMsg(e instanceof ApiError ? e.message : (e as Error).message);
     } finally { setBusy(false); }
   }
 
-  if (!order) return <div className="pd-content"><p className="pd-muted-row">Loading…</p></div>;
-
-  const isMaker = me.id === order.created_by_user_id;
+  const isMaker = order ? me.id === order.created_by_user_id : false;
   const myDeal = deals.find((d) => d.responder_user_id === me.id);
+  const canRespond = Boolean(order && !isMaker && !myDeal && order.status === 'active');
+  const respond = useCallback(() => {
+    if (!order) return;
+    void run(() => api.post(`/orders/${order.id}/respond`), 'Response sent — the maker will review it.');
+  }, [order?.id]);
+
+  useEffect(() => {
+    if (!canRespond) return undefined;
+    return setMainButton({
+      text: busy ? 'Sending...' : 'Respond to order',
+      enabled: !busy,
+      loading: busy,
+      onClick: respond,
+    });
+  }, [busy, canRespond, respond]);
+
+  if (!order) {
+    return (
+      <div className="pd-content">
+        {loadErr ? (
+          <>
+            <div className="pd-state-card pd-state-error">
+              <Icon name="close" size={18} />
+              <span>{loadErr}</span>
+            </div>
+            <button className="pd-btn-ghost-sm" style={{ width: '100%', marginTop: 12, justifyContent: 'center' }} onClick={loadInitial}>
+              Retry
+            </button>
+          </>
+        ) : (
+          <p className="pd-muted-row">Loading…</p>
+        )}
+      </div>
+    );
+  }
+
   const requests = deals.filter((d) => d.status === 'requested');
   const acceptedDeal = deals.find((d) => d.status === 'accepted' || d.status === 'completed');
 
@@ -70,14 +112,14 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
         <div className="pd-maker-card">
           <Maker maker={order.maker} />
           <span className="pd-spacer" />
-          <span className="pd-verified"><Icon name="shield" size={14} fill />Vetted</span>
+          <span className="pd-verified"><Icon name="shield" size={14} fill />Trusted</span>
         </div>
       )}
 
       <div className="pd-section">
         <div className="pd-section-head">
           <span>Will give — one of</span>
-          <span className="pd-section-note">курс vs ЦБ РФ</span>
+          <span className="pd-section-note">Market ref.</span>
         </div>
         <div className="pd-give-list">
           {order.give_options.map((g) => <GiveRow key={g.id} g={g} base={order.want_asset} wantAmount={order.want_amount} />)}
@@ -105,10 +147,11 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
                 <Icon name="shield" size={15} cls="pd-mut-ic" />
                 <span>PairDesk is a bulletin board — not a party to any deal. You arrange and settle directly.</span>
               </div>
-              <button className="pd-btn-block" disabled={busy}
-                onClick={() => void run(() => api.post(`/orders/${order.id}/respond`), 'Response sent — the maker will review it.')}>
-                Respond to this order
-              </button>
+              {!hasMainButton() && (
+                <button className="pd-btn-block" disabled={busy} onClick={respond}>
+                  Respond to this order
+                </button>
+              )}
             </>
           )}
           {myDeal?.status === 'requested' && (
@@ -178,7 +221,20 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
 
 function ContactPanel({ dealId, me, onComplete, busy, done = false }: { dealId: number; me: Me; onComplete: () => void; busy: boolean; done?: boolean }) {
   const [deal, setDeal] = useState<Deal | null>(null);
+  // Parent passes a fresh onComplete arrow each render; hold the latest in a ref
+  // so the MainButton effect depends only on real state, not the closure identity.
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
   useEffect(() => { api.get<Deal>(`/deals/${dealId}`).then(setDeal).catch(() => setDeal(null)); }, [dealId]);
+  useEffect(() => {
+    if (done || !deal?.contacts_revealed) return undefined;
+    return setMainButton({
+      text: busy ? 'Completing...' : 'Mark complete',
+      enabled: !busy,
+      loading: busy,
+      onClick: () => onCompleteRef.current(),
+    });
+  }, [busy, deal?.contacts_revealed, done]);
   if (!deal) return <p className="pd-muted-row">Loading contact…</p>;
   if (!deal.contacts_revealed) return <p className="pd-muted-row">Contact details unavailable.</p>;
   const cp = me.id === deal.creator_user_id ? deal.responder_contact : deal.creator_contact;
@@ -200,7 +256,7 @@ function ContactPanel({ dealId, me, onComplete, busy, done = false }: { dealId: 
       <div className="pd-kv"><span className="pd-k">Phone</span><span className="pd-v pd-num">{cp?.phone ?? '—'}</span></div>
       <div className="pd-kv"><span className="pd-k">Details</span><span className="pd-v">{cp?.contact ?? '—'}</span></div>
       <p className="pd-contact-note">Arrange and settle directly. Mark the deal complete once done.</p>
-      {!done && <button className="pd-btn-block" disabled={busy} onClick={onComplete}>Mark deal complete</button>}
+      {!done && !hasMainButton() && <button className="pd-btn-block" disabled={busy} onClick={onComplete}>Mark deal complete</button>}
     </div>
   );
 }
