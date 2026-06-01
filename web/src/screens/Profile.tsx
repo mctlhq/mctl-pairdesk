@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { Icon } from '../components.js';
 import { haptic } from '../tg.js';
@@ -18,6 +18,11 @@ export function Profile({ me, onSaved }: { me: Me; onSaved: () => void }) {
   const [contact, setContact] = useState(p.contact ?? '');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [members, setMembers] = useState<number | null>(null);
+
+  useEffect(() => {
+    api.get<{ members: number }>('/community/stats').then((r) => setMembers(r.members)).catch(() => {});
+  }, []);
 
   async function save() {
     setBusy(true); setMsg(null);
@@ -62,6 +67,13 @@ export function Profile({ me, onSaved }: { me: Me; onSaved: () => void }) {
           <span className="pd-stat-label">Rating</span>
         </div>
       </div>
+
+      {members != null && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--pd-hint)', marginBottom: 16 }}>
+          <Icon name="user" size={14} cls="pd-mut-ic" />
+          Member of a community of <span className="pd-num" style={{ fontWeight: 700, color: 'var(--pd-text-2)' }}>{members}</span> vetted traders
+        </div>
+      )}
 
       <span className="pd-label">Display name</span>
       <input className="pd-input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
