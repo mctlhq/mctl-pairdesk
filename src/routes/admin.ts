@@ -98,6 +98,29 @@ adminRouter.post('/orders/:id/remove', async (req, res, next) => {
   }
 });
 
+adminRouter.get('/deals', async (req, res, next) => {
+  try {
+    const ctx = getCtx(req);
+    const { rows } = await pool.query(
+      `SELECT d.id, d.status, d.created_at, d.updated_at,
+              o.id AS order_id, o.want_asset, o.want_amount,
+              o.status AS order_status, o.location_city,
+              cr.username AS creator_username, cr.first_name AS creator_name,
+              re.username AS responder_username, re.first_name AS responder_name
+         FROM deals d
+         JOIN orders o  ON o.id = d.order_id
+         JOIN users  cr ON cr.id = d.creator_user_id
+         JOIN users  re ON re.id = d.responder_user_id
+        WHERE d.community_id = $1
+        ORDER BY d.created_at DESC LIMIT 200`,
+      [ctx.communityId],
+    );
+    res.json({ deals: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Flag an order as suspicious (audit-only marker for the MVP).
 adminRouter.post('/orders/:id/flag', async (req, res, next) => {
   try {
