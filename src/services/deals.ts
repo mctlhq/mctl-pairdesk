@@ -26,7 +26,7 @@ export async function respondToOrder(ctx: AuthContext, orderId: number): Promise
   try {
     return await withTransaction(async (client) => {
       const { rows } = await client.query<OrderLockRow>(
-        `SELECT id, created_by_user_id, status FROM orders
+        `SELECT id, created_by_user_id, status, want_asset, want_amount FROM orders
           WHERE id = $1 AND community_id = $2 AND deleted_at IS NULL`,
         [orderId, ctx.communityId],
       );
@@ -45,7 +45,11 @@ export async function respondToOrder(ctx: AuthContext, orderId: number): Promise
         { communityId: ctx.communityId, actorUserId: ctx.userId, action: 'deal.requested', targetType: 'deal', targetId: dealId, meta: { order_id: orderId } },
         client,
       );
-      void notifyCreatorOfResponse(order.created_by_user_id, orderId, dealId);
+      void notifyCreatorOfResponse(order.created_by_user_id, orderId, dealId, {
+        wantAsset: order.want_asset,
+        wantAmount: order.want_amount,
+        responderUserId: ctx.userId,
+      });
       return { deal_id: dealId };
     });
   } catch (err) {
@@ -175,9 +179,11 @@ interface DealDetailRow {
   c_username: string | null;
   c_phone: string | null;
   c_contact: string | null;
+  c_telegram_id: number;
   r_username: string | null;
   r_phone: string | null;
   r_contact: string | null;
+  r_telegram_id: number;
 }
 
 /**
@@ -189,8 +195,8 @@ export async function getDealDetail(ctx: AuthContext, dealId: number): Promise<R
   const { rows } = await pool.query<DealDetailRow>(
     `SELECT d.id, d.order_id, d.creator_user_id, d.responder_user_id, d.status, d.created_at, d.completed_at,
             o.status AS order_status,
-            cu.username AS c_username, cu.phone AS c_phone, cu.contact AS c_contact,
-            ru.username AS r_username, ru.phone AS r_phone, ru.contact AS r_contact
+            cu.username AS c_username, cu.phone AS c_phone, cu.contact AS c_contact, cu.telegram_id AS c_telegram_id,
+            ru.username AS r_username, ru.phone AS r_phone, ru.contact AS r_contact, ru.telegram_id AS r_telegram_id
        FROM deals d
        JOIN orders o ON o.id = d.order_id
        JOIN users cu ON cu.id = d.creator_user_id
@@ -234,8 +240,8 @@ export async function getDealDetail(ctx: AuthContext, dealId: number): Promise<R
   if (!contactsAllowed) return base;
   return {
     ...base,
-    creator_contact: { username: d.c_username, phone: d.c_phone, contact: d.c_contact },
-    responder_contact: { username: d.r_username, phone: d.r_phone, contact: d.r_contact },
+    creator_contact: { telegram_id: d.c_telegram_id, username: d.c_username, phone: d.c_phone, contact: d.c_contact },
+    responder_contact: { telegram_id: d.r_telegram_id, username: d.r_username, phone: d.r_phone, contact: d.r_contact },
   };
 }
 
@@ -254,11 +260,13 @@ export async function listOrderDeals(ctx: AuthContext, orderId: number): Promise
   const isMaker = ord.rows[0]!.created_by_user_id === ctx.userId || ctx.superAdmin;
 
   const { rows } = await pool.query(
-    `SELECT id, order_id, status, creator_user_id, responder_user_id, created_at
-       FROM deals
-      WHERE community_id = $1 AND order_id = $2
-        AND ($3 OR responder_user_id = $4)
-      ORDER BY created_at ASC`,
+    `SELECT d.id, d.order_id, d.status, d.creator_user_id, d.responder_user_id, d.created_at,
+            re.username AS responder_username, re.first_name AS responder_name
+       FROM deals d
+       JOIN users re ON re.id = d.responder_user_id
+      WHERE d.community_id = $1 AND d.order_id = $2
+        AND ($3 OR d.responder_user_id = $4)
+      ORDER BY d.created_at ASC`,
     [ctx.communityId, orderId, isMaker, ctx.userId],
   );
   return rows;
@@ -284,11 +292,23 @@ export async function listMyDeals(ctx: AuthContext): Promise<Record<string, unkn
 
 // ---- notifications (best-effort; Stage 2 enriches with deep links) ----
 
-async function notifyCreatorOfResponse(creatorUserId: number, orderId: number, dealId: number): Promise<void> {
+async function notifyCreatorOfResponse(
+  creatorUserId: number,
+  orderId: number,
+  dealId: number,
+  info: { wantAsset: string; wantAmount: string; responderUserId: number },
+): Promise<void> {
   const tg = await telegramIdOf(creatorUserId);
   if (!tg) return;
-  // Inline Accept/Reject buttons let the maker act straight from the chat; the
-  // callbacks run through the same acceptDeal/rejectDeal services as the app.
+  const { rows: ru } = await pool.query<{ username: string | null; first_name: string | null }>(
+    `SELECT username, first_name FROM users WHERE id = $1`,
+    [info.responderUserId],
+  );
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const rawName = ru[0]?.username ? `@${ru[0].username}` : (ru[0]?.first_name ?? 'A member');
+  const responder = esc(rawName);
+  const amount = `${info.wantAmount} ${info.wantAsset}`;
+  const text = `${responder} responded to your order: ${amount}\n\nAccepting will share contact details so you can arrange the exchange directly.`;
   const buttons: InlineButton[][] = [
     [
       { text: '✓ Accept', callback_data: `accept_deal:${dealId}` },
@@ -297,7 +317,7 @@ async function notifyCreatorOfResponse(creatorUserId: number, orderId: number, d
   ];
   const open = openAppButton('Open order');
   if (open) buttons.push([open]);
-  await notify(tg, `New response on your order #${orderId}. Accepting shares contact details with the responder.`, buttons);
+  await notify(tg, text, buttons);
 }
 
 async function notifyDealAccepted(dealId: number): Promise<void> {

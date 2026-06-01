@@ -77,10 +77,10 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
       <div className="pd-section">
         <div className="pd-section-head">
           <span>Will give — one of</span>
-          <span className="pd-section-note">rate vs CBR</span>
+          <span className="pd-section-note">курс vs ЦБ РФ</span>
         </div>
         <div className="pd-give-list">
-          {order.give_options.map((g) => <GiveRow key={g.id} g={g} base={order.want_asset} />)}
+          {order.give_options.map((g) => <GiveRow key={g.id} g={g} base={order.want_asset} wantAmount={order.want_amount} />)}
         </div>
       </div>
 
@@ -135,11 +135,19 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
           </div>
           {deals.length === 0 && <p className="pd-muted-row">No responses yet.</p>}
           <div className="pd-resp-list">
-            {deals.map((d) => (
+            {deals.map((d) => {
+              const rLabel = d.responder_username ? `@${d.responder_username}` : (d.responder_name ?? `id ${d.responder_user_id}`);
+              // Only link by @username (public info); telegram_id is gated behind accept
+              const rLink = d.responder_username ? `https://t.me/${d.responder_username}` : undefined;
+              return (
               <div className={`pd-resp${d.status !== 'requested' ? ' is-resolved' : ''}`} key={d.id}>
-                <span className="pd-avatar">R</span>
+                <span className="pd-avatar">{(d.responder_username || d.responder_name || 'R').slice(0, 1).toUpperCase()}</span>
                 <span className="pd-resp-meta">
-                  <span className="pd-maker-name">Responder #{d.responder_user_id}</span>
+                  {rLink ? (
+                    <a href={rLink} className="pd-maker-name" style={{ textDecoration: 'none', color: 'inherit' }}>{rLabel}</a>
+                  ) : (
+                    <span className="pd-maker-name">{rLabel}</span>
+                  )}
                   <span className="pd-maker-sub"><Badge status={d.status} /></span>
                 </span>
                 <span className="pd-spacer" />
@@ -150,7 +158,8 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
                   </span>
                 ) : <Badge status={d.status} />}
               </div>
-            ))}
+            );})}
+
           </div>
           {acceptedDeal && (
             <ContactPanel dealId={acceptedDeal.id} me={me} onComplete={() => void run(() => api.post(`/deals/${acceptedDeal.id}/complete`), 'Marked complete.')} busy={busy} done={acceptedDeal.status === 'completed'} />
@@ -173,10 +182,21 @@ function ContactPanel({ dealId, me, onComplete, busy, done = false }: { dealId: 
   if (!deal) return <p className="pd-muted-row">Loading contact…</p>;
   if (!deal.contacts_revealed) return <p className="pd-muted-row">Contact details unavailable.</p>;
   const cp = me.id === deal.creator_user_id ? deal.responder_contact : deal.creator_contact;
+  const tgHref = cp?.username
+    ? `https://t.me/${cp.username}`
+    : cp?.telegram_id ? `tg://user?id=${cp.telegram_id}` : undefined;
+  const tgLabel = cp?.username ? `@${cp.username}` : cp?.telegram_id ? `id ${cp.telegram_id}` : '—';
   return (
     <div className="pd-contact-card">
       <div className="pd-contact-head"><Icon name="check" size={16} cls="pd-good-ic" /><span>Contacts shared</span></div>
-      <div className="pd-kv"><span className="pd-k">Telegram</span><span className="pd-v">{cp?.username ? `@${cp.username}` : '—'}</span></div>
+      <div className="pd-kv">
+        <span className="pd-k">Telegram</span>
+        {tgHref ? (
+          <a href={tgHref} className="pd-v" style={{ color: 'var(--pd-accent-eff)', fontWeight: 600, textDecoration: 'none' }}>{tgLabel} ↗</a>
+        ) : (
+          <span className="pd-v">{tgLabel}</span>
+        )}
+      </div>
       <div className="pd-kv"><span className="pd-k">Phone</span><span className="pd-v pd-num">{cp?.phone ?? '—'}</span></div>
       <div className="pd-kv"><span className="pd-k">Details</span><span className="pd-v">{cp?.contact ?? '—'}</span></div>
       <p className="pd-contact-note">Arrange and settle directly. Mark the deal complete once done.</p>

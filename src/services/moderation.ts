@@ -36,19 +36,25 @@ const STATUS_ACTION: Record<string, string> = {
  * bot callback guard (getUserStatus) already caught this case and produced a user-
  * friendly "Already handled" message; the gate here is the belt to that suspender.
  */
+export interface SetUserStatusResult {
+  telegram_id: number;
+  username: string | null;
+  first_name: string | null;
+}
+
 export async function setUserStatus(
   ctx: AuthContext,
   targetUserId: number,
   status: UserStatus,
   notifyText?: string,
   expectedFrom?: UserStatus,
-): Promise<number> {
+): Promise<SetUserStatusResult> {
   if (!canModerate(ctx)) throw new AppError(403, 'moderator role required');
-  const { rows } = await pool.query<{ telegram_id: number }>(
+  const { rows } = await pool.query<SetUserStatusResult>(
     `UPDATE users SET status = $3, updated_at = now()
       WHERE id = $1 AND community_id = $2
         AND ($4::text IS NULL OR status = $4)
-      RETURNING telegram_id`,
+      RETURNING telegram_id, username, first_name`,
     [targetUserId, ctx.communityId, status, expectedFrom ?? null],
   );
   if (rows.length === 0) throw new AppError(404, 'user not found');
@@ -59,12 +65,12 @@ export async function setUserStatus(
     targetType: 'user',
     targetId: targetUserId,
   });
-  const tg = rows[0]!.telegram_id;
-  if (notifyText && tg) {
+  const { telegram_id, username, first_name } = rows[0]!;
+  if (notifyText && telegram_id) {
     const openBtn = status === 'approved' ? openAppButton() : null;
-    void notify(tg, notifyText, openBtn ? [[openBtn]] : undefined);
+    void notify(telegram_id, notifyText, openBtn ? [[openBtn]] : undefined);
   }
-  return tg;
+  return rows[0]!;
 }
 
 /**

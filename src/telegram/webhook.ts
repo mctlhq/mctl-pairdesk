@@ -52,7 +52,8 @@ async function handleMessage(msg: TgMessage): Promise<void> {
     const communityId = await getDefaultCommunityId();
     const u = await upsertTelegramUser(communityId, from);
     if (u.inserted && u.status === 'pending') {
-      void notifyAdminsOfNewUser(communityId, u.id, from.username ? `@${from.username}` : `id ${from.id}`);
+      void notifyAdminsOfNewUser(communityId, u.id,
+        from.username ? `@${from.username}` : (from.first_name ? `${from.first_name} (id ${from.id})` : `id ${from.id}`));
     }
     if (u.status === 'approved') {
       const open = openAppButton('Open PairDesk');
@@ -129,15 +130,19 @@ async function handleCallback(cq: TgCallbackQuery): Promise<void> {
     let resolved = '';
     switch (action) {
       case 'approve_user': {
-        await setUserStatus(ctx, targetId, 'approved', 'You have been approved for PairDesk. Open the app to start.', 'pending');
+        const au = await setUserStatus(ctx, targetId, 'approved', 'You have been approved for PairDesk. Open the app to start.', 'pending');
+        const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const auLabel = au.username ? `@${au.username}` : (au.first_name ? `${esc(au.first_name)} (id ${au.telegram_id})` : `id ${au.telegram_id}`);
         toast = 'Approved';
-        resolved = `✅ Approved member #${targetId}.`;
+        resolved = `✅ Approved: ${auLabel}`;
         break;
       }
       case 'reject_user': {
-        await setUserStatus(ctx, targetId, 'rejected', undefined, 'pending');
+        const ru = await setUserStatus(ctx, targetId, 'rejected', undefined, 'pending');
+        const escR = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const ruLabel = ru.username ? `@${ru.username}` : (ru.first_name ? `${escR(ru.first_name)} (id ${ru.telegram_id})` : `id ${ru.telegram_id}`);
         toast = 'Rejected';
-        resolved = `🚫 Rejected member #${targetId}.`;
+        resolved = `🚫 Rejected: ${ruLabel}`;
         break;
       }
       case 'accept_deal': {
