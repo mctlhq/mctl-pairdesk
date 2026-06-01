@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { Icon } from '../components.js';
 import { hasMainButton, hapticError, hapticSelection, hapticSuccess, setMainButton, showBackButton } from '../tg.js';
@@ -43,21 +43,36 @@ export function Profile({ me, canAdmin, onSaved }: { me: Me; canAdmin: boolean; 
     return showBackButton(() => setView('main'));
   }, [view]);
 
+  // Hold the latest save in a ref so the MainButton effect depends only on what
+  // changes the button (busy/view) — not on `save`, whose useCallback identity
+  // changes on every keystroke and would otherwise re-bind onClick per character.
+  const saveRef = useRef(save);
+  saveRef.current = save;
   useEffect(() => {
     if (view !== 'main') return undefined;
     return setMainButton({
       text: busy ? 'Saving...' : 'Save',
       enabled: !busy,
       loading: busy,
-      onClick: () => { void save(); },
+      onClick: () => { void saveRef.current(); },
     });
-  }, [busy, save, view]);
+  }, [busy, view]);
 
-  if (view === 'alerts') {
-    return <Subscriptions />;
-  }
-  if (view === 'admin' && canAdmin) {
-    return <Admin />;
+  if (view === 'alerts' || (view === 'admin' && canAdmin)) {
+    return (
+      <>
+        {/* In Telegram the native BackButton (registered above) handles return;
+            outside it, showBackButton is a no-op, so give an in-page way back. */}
+        {!hasMainButton() && (
+          <div style={{ padding: '12px 16px 0' }}>
+            <button className="pd-btn-ghost-sm" onClick={() => { hapticSelection(); setView('main'); }}>
+              <Icon name="back" size={16} /> Back to profile
+            </button>
+          </div>
+        )}
+        {view === 'alerts' ? <Subscriptions /> : <Admin />}
+      </>
+    );
   }
 
   const initial = (me.profile.display_name || me.username || 'U').slice(0, 1).toUpperCase();

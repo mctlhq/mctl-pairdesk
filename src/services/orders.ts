@@ -305,8 +305,12 @@ async function assembleOrders(
   const makerIds = [...new Set(orders.map((o) => o.created_by_user_id))];
 
   const { rows: options } = await pool.query<GiveOptionRow & { order_id: number }>(
+    // ORDER BY id keeps give_options in stable creation order: the UI surfaces
+    // give_options[0] as the headline, so an undefined row order would let the
+    // same order flip its headline option (and "best ±X%" badge) across requests.
     `SELECT id, order_id, asset, max_rate, payment_methods
-       FROM order_give_options WHERE order_id = ANY($1)`,
+       FROM order_give_options WHERE order_id = ANY($1)
+      ORDER BY order_id, id`,
     [ids],
   );
   const { rows: makers } = await pool.query<PublicCounterparty>(

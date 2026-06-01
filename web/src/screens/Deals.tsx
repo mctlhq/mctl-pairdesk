@@ -161,7 +161,12 @@ function DealList({
             {isCompleted && <div className="pd-deal-hint">Deal completed</div>}
             {!isAccepted && !isCompleted && (
               <div className="pd-deal-hint">
-                {d.status === 'requested' ? 'Waiting for maker to review' : d.status}
+                {d.status === 'requested'
+                  // creator_user_id is the order maker: if that's me, this is an
+                  // incoming response on my order awaiting MY review — not me
+                  // waiting on someone else's review.
+                  ? (d.creator_user_id === me.id ? 'New response — tap to review' : 'Waiting for maker to review')
+                  : d.status}
               </div>
             )}
           </button>

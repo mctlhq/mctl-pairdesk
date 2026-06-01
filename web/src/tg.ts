@@ -178,7 +178,11 @@ export function setMainButton({
   enabled?: boolean;
   loading?: boolean;
 }): () => void {
-  if (!wa) return () => {};
+  // Drive the native MainButton ONLY in a real Telegram session. In a plain
+  // browser / AUTH_DEV_BYPASS run, telegram-web-app.js makes `wa` truthy but no
+  // native button is ever rendered — so we no-op here and let the in-page
+  // fallbacks (gated by !hasMainButton()) be the visible CTA instead.
+  if (!isTelegram || !wa) return () => {};
   const button = wa.MainButton;
   if (pendingHide != null) { cancelAnimationFrame(pendingHide); pendingHide = null; }
   if (activeOnClick) button.offClick(activeOnClick);
@@ -206,8 +210,11 @@ export function setMainButton({
   };
 }
 
+// True only when a real Telegram client is present to render the native
+// MainButton. Equals `isTelegram` (non-empty initData) — NOT merely "the SDK
+// object exists", which is also true in a plain browser where no button shows.
 export function hasMainButton(): boolean {
-  return Boolean(wa);
+  return isTelegram;
 }
 
 export function hapticSelection(): void {

@@ -243,17 +243,23 @@ export function OrderCard({
   onOpen,
   variant = 'standard',
   rateStyle = 'chip',
+  highlightAsset,
 }: {
   order: Order;
   onOpen?: (id: number) => void;
   variant?: OrderCardVariant;
   rateStyle?: RateStyle;
+  // When the book is filtered by Offers, headline the give option the user
+  // filtered for instead of give_options[0] — otherwise the card shows a
+  // non-matching asset and hides the amount/rate that produced the match.
+  highlightAsset?: Asset;
 }) {
   const tap = onOpen ? () => onOpen(order.id) : undefined;
 
   if (variant === 'outcome') {
     const qty = Number.parseFloat(order.want_amount);
-    const primary = order.give_options[0] ?? null;
+    const primary = (highlightAsset && order.give_options.find((g) => g.asset === highlightAsset))
+      ?? order.give_options[0] ?? null;
     const primaryRate = primary?.max_rate ? Number.parseFloat(primary.max_rate) : null;
     const primaryTotal = primary && primaryRate != null && Number.isFinite(qty) && Number.isFinite(primaryRate) ? qty * primaryRate : null;
     // The card pairs Rate + Market-ref with give_options[0]. When another option

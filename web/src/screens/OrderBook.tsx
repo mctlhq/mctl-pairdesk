@@ -145,7 +145,7 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
         ) : (
           <>
             {orders.map((o) => (
-              <OrderCard key={o.id} order={o} onOpen={onOpen} variant="outcome" />
+              <OrderCard key={o.id} order={o} onOpen={onOpen} variant="outcome" highlightAsset={give || undefined} />
             ))}
             {loadMoreErr && (
               <div className="pd-state-card pd-state-error">
