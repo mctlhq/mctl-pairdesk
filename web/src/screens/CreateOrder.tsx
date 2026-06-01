@@ -131,7 +131,10 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                       ))}
                     </div>
                     <span className="pd-spacer" />
-                    {opts.length > 1 && <button className="pd-btn-ghost-sm" onClick={() => setOpts((p) => p.filter((_, idx) => idx !== i))}>Remove</button>}
+                    {opts.length > 1 && <button className="pd-btn-ghost-sm" onClick={() => {
+                      setOpts((p) => p.filter((_, idx) => idx !== i));
+                      setRateViolations((p) => { const n = { ...p }; delete n[i]; return n; });
+                    }}>Remove</button>}
                   </div>
                   <span className="pd-label">Max rate <span className="pd-label-opt">· {o.asset}/{wantAsset} · optional</span></span>
                   <input className="pd-input pd-num" inputMode="decimal"

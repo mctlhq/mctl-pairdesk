@@ -137,7 +137,8 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
           <div className="pd-resp-list">
             {deals.map((d) => {
               const rLabel = d.responder_username ? `@${d.responder_username}` : (d.responder_name ?? `id ${d.responder_user_id}`);
-              const rLink = d.responder_username ? `https://t.me/${d.responder_username}` : (d.responder_telegram_id ? `tg://user?id=${d.responder_telegram_id}` : undefined);
+              // Only link by @username (public info); telegram_id is gated behind accept
+              const rLink = d.responder_username ? `https://t.me/${d.responder_username}` : undefined;
               return (
               <div className={`pd-resp${d.status !== 'requested' ? ' is-resolved' : ''}`} key={d.id}>
                 <span className="pd-avatar">{(d.responder_username || d.responder_name || 'R').slice(0, 1).toUpperCase()}</span>

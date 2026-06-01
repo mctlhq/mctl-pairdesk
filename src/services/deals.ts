@@ -261,8 +261,7 @@ export async function listOrderDeals(ctx: AuthContext, orderId: number): Promise
 
   const { rows } = await pool.query(
     `SELECT d.id, d.order_id, d.status, d.creator_user_id, d.responder_user_id, d.created_at,
-            re.username AS responder_username, re.first_name AS responder_name,
-            re.telegram_id AS responder_telegram_id
+            re.username AS responder_username, re.first_name AS responder_name
        FROM deals d
        JOIN users re ON re.id = d.responder_user_id
       WHERE d.community_id = $1 AND d.order_id = $2
