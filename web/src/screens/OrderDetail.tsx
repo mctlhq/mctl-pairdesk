@@ -185,7 +185,7 @@ function ContactPanel({ dealId, me, onComplete, busy, done = false }: { dealId: 
   const tgHref = cp?.username
     ? `https://t.me/${cp.username}`
     : cp?.telegram_id ? `tg://user?id=${cp.telegram_id}` : undefined;
-  const tgLabel = cp?.username ? `@${cp.username}` : '—';
+  const tgLabel = cp?.username ? `@${cp.username}` : cp?.telegram_id ? `id ${cp.telegram_id}` : '—';
   return (
     <div className="pd-contact-card">
       <div className="pd-contact-head"><Icon name="check" size={16} cls="pd-good-ic" /><span>Contacts shared</span></div>

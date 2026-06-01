@@ -131,14 +131,16 @@ async function handleCallback(cq: TgCallbackQuery): Promise<void> {
     switch (action) {
       case 'approve_user': {
         const au = await setUserStatus(ctx, targetId, 'approved', 'You have been approved for PairDesk. Open the app to start.', 'pending');
-        const auLabel = au.username ? `@${au.username}` : (au.first_name ? `${au.first_name} (id ${au.telegram_id})` : `id ${au.telegram_id}`);
+        const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const auLabel = au.username ? `@${au.username}` : (au.first_name ? `${esc(au.first_name)} (id ${au.telegram_id})` : `id ${au.telegram_id}`);
         toast = 'Approved';
         resolved = `✅ Approved: ${auLabel}`;
         break;
       }
       case 'reject_user': {
         const ru = await setUserStatus(ctx, targetId, 'rejected', undefined, 'pending');
-        const ruLabel = ru.username ? `@${ru.username}` : (ru.first_name ? `${ru.first_name} (id ${ru.telegram_id})` : `id ${ru.telegram_id}`);
+        const escR = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const ruLabel = ru.username ? `@${ru.username}` : (ru.first_name ? `${escR(ru.first_name)} (id ${ru.telegram_id})` : `id ${ru.telegram_id}`);
         toast = 'Rejected';
         resolved = `🚫 Rejected: ${ruLabel}`;
         break;
