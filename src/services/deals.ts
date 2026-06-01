@@ -119,6 +119,7 @@ export async function rejectDeal(ctx: AuthContext, dealId: number): Promise<void
       client,
     );
   });
+  void notifyDealRejected(dealId);
 }
 
 /** Either party marks an accepted deal complete: order→completed, ratings bumped. */
@@ -298,6 +299,16 @@ async function notifyDealAccepted(dealId: number): Promise<void> {
   if (!tg) return;
   const open = openAppButton('Open deal');
   await notify(tg, `Your response was accepted. Open PairDesk to see the counterparty's contact details.`, open ? [[open]] : undefined);
+}
+
+async function notifyDealRejected(dealId: number): Promise<void> {
+  const { rows } = await pool.query<{ tg: number }>(
+    `SELECT u.telegram_id AS tg FROM deals d JOIN users u ON u.id = d.responder_user_id WHERE d.id = $1`,
+    [dealId],
+  );
+  const tg = rows[0]?.tg;
+  if (!tg) return;
+  await notify(tg, `Your response to the order was not selected this time.`);
 }
 
 async function telegramIdOf(userId: number): Promise<number | null> {
