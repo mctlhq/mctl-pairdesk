@@ -268,8 +268,13 @@ export async function listOrderDeals(ctx: AuthContext, orderId: number): Promise
 export async function listMyDeals(ctx: AuthContext): Promise<Record<string, unknown>[]> {
   const { rows } = await pool.query(
     `SELECT d.id, d.order_id, d.status, d.creator_user_id, d.responder_user_id, d.created_at,
-            o.want_asset, o.want_amount, o.status AS order_status
-       FROM deals d JOIN orders o ON o.id = d.order_id
+            o.want_asset, o.want_amount, o.status AS order_status, o.location_city,
+            cr.username AS creator_username, cr.first_name AS creator_name,
+            re.username AS responder_username, re.first_name AS responder_name
+       FROM deals d
+       JOIN orders o  ON o.id = d.order_id
+       JOIN users  cr ON cr.id = d.creator_user_id
+       JOIN users  re ON re.id = d.responder_user_id
       WHERE d.community_id = $1 AND ($2 IN (d.creator_user_id, d.responder_user_id))
       ORDER BY d.created_at DESC LIMIT 100`,
     [ctx.communityId, ctx.userId],
@@ -303,7 +308,7 @@ async function notifyDealAccepted(dealId: number): Promise<void> {
   const tg = rows[0]?.tg;
   if (!tg) return;
   const open = openAppButton('Open deal');
-  await notify(tg, `Your response was accepted. Open PairDesk to see the counterparty's contact details.`, open ? [[open]] : undefined);
+  await notify(tg, `Your response was accepted! Open PairDesk → Deals tab to see the counterparty's contact details and arrange the exchange.`, open ? [[open]] : undefined);
 }
 
 async function notifyDealRejected(dealId: number): Promise<void> {
