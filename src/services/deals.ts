@@ -63,6 +63,7 @@ export async function respondToOrder(ctx: AuthContext, orderId: number): Promise
  * unique index `uq_deals_winner` as the DB-level backstop).
  */
 export async function acceptDeal(ctx: AuthContext, dealId: number): Promise<void> {
+  let siblingUserIds: number[] = [];
   await withTransaction(async (client) => {
     const dealRes = await client.query<{ order_id: number; creator_user_id: number; responder_user_id: number; status: string }>(
       `SELECT order_id, creator_user_id, responder_user_id, status FROM deals
@@ -89,17 +90,21 @@ export async function acceptDeal(ctx: AuthContext, dealId: number): Promise<void
       [order.id, deal.responder_user_id],
     );
     await client.query(`UPDATE deals SET status = 'accepted', updated_at = now() WHERE id = $1`, [dealId]);
-    await client.query(
+    // Collect sibling responders via RETURNING before they disappear from 'requested'
+    const siblings = await client.query<{ responder_user_id: number }>(
       `UPDATE deals SET status = 'rejected', updated_at = now()
-        WHERE order_id = $1 AND id <> $2 AND status = 'requested'`,
+        WHERE order_id = $1 AND id <> $2 AND status = 'requested'
+        RETURNING responder_user_id`,
       [order.id, dealId],
     );
+    siblingUserIds = siblings.rows.map((r) => r.responder_user_id);
     await audit(
       { communityId: ctx.communityId, actorUserId: ctx.userId, action: 'deal.accepted', targetType: 'deal', targetId: dealId, meta: { order_id: order.id } },
       client,
     );
   });
   void notifyDealAccepted(dealId);
+  void notifySiblingsRejected(siblingUserIds);
 }
 
 /** Creator declines one specific requested deal (without accepting another). */
@@ -309,6 +314,17 @@ async function notifyDealRejected(dealId: number): Promise<void> {
   const tg = rows[0]?.tg;
   if (!tg) return;
   await notify(tg, `Your response to the order was not selected this time.`);
+}
+
+async function notifySiblingsRejected(userIds: number[]): Promise<void> {
+  if (userIds.length === 0) return;
+  const { rows } = await pool.query<{ telegram_id: number }>(
+    `SELECT telegram_id FROM users WHERE id = ANY($1)`,
+    [userIds],
+  );
+  for (const { telegram_id } of rows) {
+    void notify(telegram_id, `Your response to the order was not selected — the maker chose another respondent.`);
+  }
 }
 
 async function telegramIdOf(userId: number): Promise<number | null> {

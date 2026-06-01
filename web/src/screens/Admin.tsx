@@ -5,23 +5,43 @@ import { haptic } from '../tg.js';
 
 interface PendingUser { id: number; telegram_id: number; username: string | null; first_name: string | null; created_at: string }
 interface AdminOrder { id: number; created_by_user_id: number; want_asset: string; want_amount: string; status: string; location_city: string | null }
+interface AdminDeal {
+  id: number; status: string; created_at: string; updated_at: string;
+  order_id: number; want_asset: string; want_amount: string; order_status: string; location_city: string | null;
+  creator_username: string | null; creator_name: string;
+  responder_username: string | null; responder_name: string;
+}
+
+type View = 'users' | 'orders' | 'deals';
 
 export function Admin() {
-  const [view, setView] = useState<'users' | 'orders'>('users');
+  const [view, setView] = useState<View>('users');
+  const tabs: { id: View; label: string }[] = [
+    { id: 'users',  label: 'Pending users' },
+    { id: 'orders', label: 'Orders' },
+    { id: 'deals',  label: 'Deals' },
+  ];
   return (
     <div className="pd-page">
       <h1 className="pd-h1">Admin</h1>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <button
-          className={`pd-chip${view === 'users' ? ' is-on' : ''}`}
-          onClick={() => setView('users')}>Pending users</button>
-        <button
-          className={`pd-chip${view === 'orders' ? ' is-on' : ''}`}
-          onClick={() => setView('orders')}>Orders</button>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto' }}>
+        {tabs.map((t) => (
+          <button key={t.id} className={`pd-chip${view === t.id ? ' is-on' : ''}`} onClick={() => setView(t.id)}>
+            {t.label}
+          </button>
+        ))}
       </div>
-      {view === 'users' ? <PendingUsers /> : <Orders />}
+      {view === 'users'  && <PendingUsers />}
+      {view === 'orders' && <Orders />}
+      {view === 'deals'  && <Deals />}
     </div>
   );
+}
+
+function userLabel(u: Pick<PendingUser, 'username' | 'first_name' | 'telegram_id'>): string {
+  if (u.username) return `@${u.username}`;
+  if (u.first_name) return `${u.first_name} · id ${u.telegram_id}`;
+  return `id ${u.telegram_id}`;
 }
 
 function PendingUsers() {
@@ -42,12 +62,14 @@ function PendingUsers() {
     <div className="pd-resp-list">
       {users.map((u) => (
         <div className="pd-resp" key={u.id}>
-          <span className="pd-avatar">{(u.username || u.first_name || 'U').slice(0, 1).toUpperCase()}</span>
-          <span className="pd-resp-meta">
-            <span className="pd-maker-name">{u.username ? `@${u.username}` : u.first_name ?? `id ${u.telegram_id}`}</span>
-            <span className="pd-maker-sub pd-num">{new Date(u.created_at).toLocaleDateString()}</span>
-          </span>
-          <span className="pd-spacer" />
+          {/* Tap avatar/meta → open Telegram chat by ID (works even without @username) */}
+          <a href={`tg://user?id=${u.telegram_id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0 }}>
+            <span className="pd-avatar">{(u.username || u.first_name || 'U').slice(0, 1).toUpperCase()}</span>
+            <span className="pd-resp-meta">
+              <span className="pd-maker-name">{userLabel(u)}</span>
+              <span className="pd-maker-sub pd-num">{new Date(u.created_at).toLocaleDateString()}</span>
+            </span>
+          </a>
           <span className="pd-resp-actions">
             <button className="pd-btn-ghost-sm" onClick={() => void act(u.id, 'reject')}>Reject</button>
             <button className="pd-btn-accent-sm" onClick={() => void act(u.id, 'approve')}>Approve</button>
@@ -92,6 +114,51 @@ function Orders() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function Deals() {
+  const [deals, setDeals] = useState<AdminDeal[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    api.get<{ deals: AdminDeal[] }>('/admin/deals').then((r) => setDeals(r.deals)).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className="pd-muted-row">Loading…</p>;
+  if (deals.length === 0) return <Empty text="No deals yet." />;
+
+  return (
+    <div className="pd-list">
+      {deals.map((d) => {
+        const creator   = d.creator_username   ? `@${d.creator_username}`   : d.creator_name;
+        const responder = d.responder_username ? `@${d.responder_username}` : d.responder_name;
+        return (
+          <div className="pd-card" key={d.id}>
+            <div className="pd-row" style={{ marginBottom: 8 }}>
+              <span className="pd-num" style={{ fontWeight: 700, fontSize: 17 }}>
+                {fmtAmount(d.want_amount)} {d.want_asset}
+              </span>
+              <span className="pd-spacer" />
+              <Badge status={d.status} />
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--pd-text-2)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div className="pd-row" style={{ gap: 6 }}>
+                <Icon name="user" size={13} cls="pd-mut-ic" />
+                <span>{creator}</span>
+                <Icon name="arrowSwap" size={13} cls="pd-mut-ic" />
+                <span>{responder}</span>
+              </div>
+              <div className="pd-row" style={{ gap: 6, color: 'var(--pd-hint)', fontSize: 12 }}>
+                <span>order #{d.order_id}</span>
+                {d.location_city && <><span className="pd-dot-sep">·</span><Icon name="pin" size={12} cls="pd-mut-ic" /><span>{d.location_city}</span></>}
+                <span className="pd-dot-sep">·</span>
+                <span className="pd-num">{new Date(d.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
