@@ -174,14 +174,24 @@ export function Maker({ maker, sub }: { maker: MakerData | null; sub?: React.Rea
 export function GiveRow({
   g,
   base,
+  wantAmount,
   rateStyle = 'chip',
   showMethods = true,
 }: {
   g: GiveOption;
   base: string;
+  wantAmount?: string | null;
   rateStyle?: RateStyle;
   showMethods?: boolean;
 }) {
+  const total = (() => {
+    if (!g.max_rate || !wantAmount) return null;
+    const qty = Number.parseFloat(wantAmount);
+    const rate = Number.parseFloat(g.max_rate);
+    if (!Number.isFinite(qty) || !Number.isFinite(rate)) return null;
+    return qty * rate;
+  })();
+
   return (
     <div className="pd-give">
       <div className="pd-give-head">
@@ -195,6 +205,15 @@ export function GiveRow({
         <span className="pd-spacer" />
         <RateChip delta={g.delta_percent} style={rateStyle} />
       </div>
+      {total != null && (
+        <div style={{ fontSize: 13, color: 'var(--pd-text-2)', marginBottom: 6 }}>
+          Total ≈{' '}
+          <span className="pd-num" style={{ fontWeight: 700 }}>
+            {fmtAmount(total)}
+          </span>{' '}
+          {g.asset}
+        </div>
+      )}
       {showMethods && (
         <div className="pd-methods">
           {g.payment_methods.map((m) => (

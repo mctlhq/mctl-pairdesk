@@ -77,10 +77,10 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
       <div className="pd-section">
         <div className="pd-section-head">
           <span>Will give — one of</span>
-          <span className="pd-section-note">rate vs CBR</span>
+          <span className="pd-section-note">курс vs ЦБ РФ</span>
         </div>
         <div className="pd-give-list">
-          {order.give_options.map((g) => <GiveRow key={g.id} g={g} base={order.want_asset} />)}
+          {order.give_options.map((g) => <GiveRow key={g.id} g={g} base={order.want_asset} wantAmount={order.want_amount} />)}
         </div>
       </div>
 

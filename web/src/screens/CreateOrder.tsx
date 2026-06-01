@@ -137,7 +137,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                   <input className="pd-input pd-num" inputMode="decimal"
                     placeholder="e.g. 99"
                     value={o.max_rate} onChange={(e) => updateOpt(i, { max_rate: e.target.value })} />
-                  <RatePreview base={wantAsset} quote={o.asset} userRate={o.max_rate}
+                  <RatePreview base={wantAsset} quote={o.asset} userRate={o.max_rate} wantAmount={wantAmount}
                     onViolation={(v) => setRateViolations((p) => ({ ...p, [i]: v }))} />
                   <span className="pd-label">Payment methods</span>
                   <div className="pd-chips pd-chips-wrap" style={{ marginTop: 4 }}>
@@ -197,8 +197,8 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
 
 const MAX_DEVIATION_PCT = 10;
 
-function RatePreview({ base, quote, userRate, onViolation }: {
-  base: Asset; quote: Asset; userRate: string; onViolation?: (violated: boolean) => void;
+function RatePreview({ base, quote, userRate, wantAmount, onViolation }: {
+  base: Asset; quote: Asset; userRate: string; wantAmount?: string; onViolation?: (violated: boolean) => void;
 }) {
   const [ref, setRef] = useState<number | null>(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -228,15 +228,23 @@ function RatePreview({ base, quote, userRate, onViolation }: {
   const delta = has ? ((ur - ref) / ref) * 100 : null;
   const violated = delta != null && Math.abs(delta) > MAX_DEVIATION_PCT;
 
+  const qty = Number.parseFloat(wantAmount ?? '');
+  const total = has && Number.isFinite(qty) && qty > 0 ? qty * ur : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div className="pd-rate-preview">
-        <span className="pd-rate-ref">CBR ≈ <span className="pd-num">{fmtAmount(ref)}</span> {quote}/{base}</span>
+        <span className="pd-rate-ref">ЦБ РФ ≈ <span className="pd-num">{fmtAmount(ref)}</span> {quote}/{base}</span>
         {delta != null && <RateChip delta={delta.toFixed(1)} style="chip" />}
       </div>
+      {total != null && (
+        <div style={{ fontSize: 13, color: 'var(--pd-text-2)' }}>
+          Total ≈ <span className="pd-num" style={{ fontWeight: 700 }}>{fmtAmount(total)}</span> {quote}
+        </div>
+      )}
       {violated && (
         <p style={{ margin: 0, fontSize: 12, color: 'var(--pd-far)', fontWeight: 600 }}>
-          Rate deviates {delta! > 0 ? '+' : ''}{delta!.toFixed(1)}% from CBR — maximum ±{MAX_DEVIATION_PCT}%. Adjust the rate to continue.
+          Rate deviates {delta! > 0 ? '+' : ''}{delta!.toFixed(1)}% from ЦБ РФ — maximum ±{MAX_DEVIATION_PCT}%. Adjust the rate to continue.
         </p>
       )}
     </div>
