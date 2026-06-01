@@ -177,8 +177,13 @@ export async function createOrder(
     creatorUserId: ctx.userId,
     wantAsset: n.wantAsset,
     wantAmount: n.wantAmount,
-    giveOptions: optionIds.map(({ opt }) => ({ asset: opt.asset, maxRate: opt.maxRate })),
+    giveOptions: optionIds.map(({ opt }) => ({
+      asset: opt.asset,
+      maxRate: opt.maxRate,
+      paymentMethods: opt.paymentMethods,
+    })),
     locationCity: n.locationCity,
+    locationCountry: n.locationCountry,
   });
 
   return (await loadOrderDetail(ctx.communityId, orderId))!;
@@ -227,15 +232,18 @@ export async function listOrders(
   params.push(limit);
 
   const { rows: orders } = await pool.query<OrderRow>(
+    // ORDER BY id DESC keeps the cursor (before_id < last_id) consistent with the
+    // sort key. created_at is non-monotonic under concurrent inserts so using it
+    // as the cursor key while sorting by it would silently skip rows.
     `SELECT o.* FROM orders o
       WHERE ${where.join(' AND ')}
-      ORDER BY o.created_at DESC
+      ORDER BY o.id DESC
       LIMIT $${params.length}`,
     params,
   );
   if (orders.length === 0) return { orders: [], next_cursor: null };
   const assembled = await assembleOrders(orders);
-  // If a full page was returned, the next cursor is the smallest id in the page.
+  // Emit next_cursor only when a full page was returned — i.e. there may be more.
   const next_cursor = orders.length === limit ? (orders[orders.length - 1]?.id ?? null) : null;
   return { orders: assembled, next_cursor };
 }

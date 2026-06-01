@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { Empty, OrderCard } from '../components.js';
 import { ASSETS, type Asset, type Order } from '../types.js';
@@ -11,8 +11,12 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  // Monotonically-increasing fetch ID. Stored in a ref so it persists across
+  // renders; compared in the .then() callback to discard stale responses.
+  const latestSeq = useRef(0);
 
   function fetchOrders(before?: number, append = false) {
+    const seq = ++latestSeq.current;
     const qs = new URLSearchParams();
     if (want) qs.set('want_asset', want);
     if (give) qs.set('give_asset', give);
@@ -21,6 +25,8 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
     return api
       .get<{ orders: Order[]; next_cursor: number | null }>(`/orders?${qs.toString()}`)
       .then((r) => {
+        // Drop responses from earlier fetches that resolved after a newer one.
+        if (seq !== latestSeq.current) return;
         setOrders((prev) => append ? [...prev, ...r.orders] : r.orders);
         setNextCursor(r.next_cursor);
       });

@@ -7,11 +7,27 @@ import { listOrderDeals, respondToOrder } from '../services/deals.js';
 export const ordersRouter = Router();
 ordersRouter.use(requireApproved());
 
-// In-memory rate limit: max 10 orders per 1-hour sliding window per user.
-// Single-process (per-replica) is sufficient for a closed community at this scale.
+// In-memory rate limit: max 10 orders per fixed 1-hour window per user.
+// Fixed window (not sliding): a user could burst 10 at window end + 10 at window
+// start. Acceptable for a closed, vetted community; if stricter enforcement is
+// needed later, store the last N timestamps instead.
+// Counter increments before body validation: a user cannot bypass the limit by
+// sending 400-producing bodies (intentional — spam protection over UX).
+// Single-process (per-replica); bounded by community size, not global traffic.
 const orderCreations = new Map<number, { count: number; windowStart: number }>();
 const MAX_ORDERS_PER_HOUR = 10;
 const WINDOW_MS = 3_600_000;
+
+// Prune stale entries once per day so the map doesn't grow unbounded on long runs.
+setInterval(
+  () => {
+    const cutoff = Date.now() - WINDOW_MS;
+    for (const [uid, entry] of orderCreations) {
+      if (entry.windowStart < cutoff) orderCreations.delete(uid);
+    }
+  },
+  86_400_000,
+).unref();
 
 function checkOrderRate(userId: number): void {
   const now = Date.now();
