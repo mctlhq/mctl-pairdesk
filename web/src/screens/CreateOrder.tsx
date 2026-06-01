@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api.js';
-import { AssetSelect, fmtAmount, Icon, OrderCard, RateChip, Stepper } from '../components.js';
+import { AssetSelect, fmtAmount, Icon, OrderCard, PD_GLYPH, PD_METHOD_LABEL, RateChip, Stepper } from '../components.js';
 import { haptic } from '../tg.js';
 import { ASSETS, type Asset, PAYMENT_METHODS } from '../types.js';
 import type { Order } from '../types.js';
@@ -10,11 +10,6 @@ interface OptDraft {
   max_rate: string;
   payment_methods: string[];
 }
-
-const METHOD_LABELS: Record<string, string> = {
-  bank_transfer: 'Bank', cash: 'Cash', TRC20: 'TRC20', ERC20: 'ERC20', TON: 'TON', other: 'Other',
-};
-const GLYPH: Record<string, string> = { EUR: '€', RUB: '₽', USDT: '₮' };
 
 export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) {
   const [step, setStep] = useState(1);
@@ -96,7 +91,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
             }} />
             <span className="pd-label">Amount</span>
             <div className="pd-amount-field">
-              <span className="pd-amount-glyph">{GLYPH[wantAsset]}</span>
+              <span className="pd-amount-glyph">{PD_GLYPH[wantAsset]}</span>
               <input className="pd-input pd-input-amount pd-num" inputMode="decimal" placeholder="1000"
                 value={wantAmount} onChange={(e) => setWantAmount(e.target.value)} />
               <span className="pd-amount-code">{wantAsset}</span>
@@ -146,7 +141,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                       <button key={m} type="button"
                         className={`pd-chip pd-chip-sm${o.payment_methods.includes(m) ? ' is-on' : ''}`}
                         onClick={() => toggleMethod(i, m)}>
-                        {METHOD_LABELS[m] ?? m}
+                        {PD_METHOD_LABEL[m] ?? m}
                       </button>
                     ))}
                   </div>
