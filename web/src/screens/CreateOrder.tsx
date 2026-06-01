@@ -257,6 +257,10 @@ function RatePreview({ base, quote, userRate, wantAmount, onViolation }: {
   useEffect(() => {
     let cancel = false;
     setRef(null); setUnavailable(false);
+    // Clear any prior violation up front: the old flag belonged to the previous
+    // asset/reference. Without this it lingers (Continue stays disabled) for the
+    // whole fetch window until the new reference arrives and re-validates.
+    onViolation?.(false);
     api.get<{ rate: number }>(`/rates/reference?base=${base}&quote=${quote}`)
       .then((r) => !cancel && setRef(r.rate))
       .catch(() => { if (!cancel) { setUnavailable(true); onViolation?.(false); } });

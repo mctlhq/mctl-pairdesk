@@ -256,6 +256,13 @@ export function OrderCard({
     const primary = order.give_options[0] ?? null;
     const primaryRate = primary?.max_rate ? Number.parseFloat(primary.max_rate) : null;
     const primaryTotal = primary && primaryRate != null && Number.isFinite(qty) && Number.isFinite(primaryRate) ? qty * primaryRate : null;
+    // The card pairs Rate + Market-ref with give_options[0]. When another option
+    // has a strictly better deviation, surface it so the spread isn't hidden
+    // (the responder would otherwise only see it after tapping into the detail).
+    const primaryDelta = primary?.delta_percent != null ? Number.parseFloat(primary.delta_percent) : null;
+    const best = bestDelta(order);
+    const bestNum = best != null ? Number.parseFloat(best) : null;
+    const showBest = order.give_options.length > 1 && bestNum != null && (primaryDelta == null || bestNum > primaryDelta);
     return (
       <button className="pd-card pd-card-outcome" onClick={tap}>
         <div className="pd-order-summary">
@@ -290,6 +297,7 @@ export function OrderCard({
             <span className="pd-order-label">Market ref.</span>
             <span className="pd-order-value">
               {primary ? <RateChip delta={primary.delta_percent} style="chip" /> : <span className="pd-rate-none">no rate</span>}
+              {showBest && <span className="pd-order-alt">best {bestNum! > 0 ? '+' : ''}{bestNum!.toFixed(1)}%</span>}
             </span>
           </div>
         </div>

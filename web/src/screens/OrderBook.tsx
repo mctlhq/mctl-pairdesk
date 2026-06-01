@@ -14,10 +14,14 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [loadMoreErr, setLoadMoreErr] = useState<string | null>(null);
   const latestSeq = useRef(0);
 
   function fetchOrders(before?: number, append = false) {
     const seq = ++latestSeq.current;
+    // Clear the relevant error up front so a retry shows skeletons/list, not the
+    // stale error card. A paginate (append) failure must not replace the list.
+    if (append) setLoadMoreErr(null); else setErr(null);
     const qs = new URLSearchParams();
     if (want) qs.set('want_asset', want);
     if (give) qs.set('give_asset', give);
@@ -29,11 +33,11 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
         if (seq !== latestSeq.current) return;
         setOrders((prev) => append ? [...prev, ...r.orders] : r.orders);
         setNextCursor(r.next_cursor);
-        setErr(null);
       })
       .catch((e) => {
         if (seq !== latestSeq.current) return;
-        setErr((e as Error).message);
+        if (append) setLoadMoreErr((e as Error).message);
+        else setErr((e as Error).message);
       });
   }
 
@@ -143,9 +147,15 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
             {orders.map((o) => (
               <OrderCard key={o.id} order={o} onOpen={onOpen} variant="outcome" />
             ))}
+            {loadMoreErr && (
+              <div className="pd-state-card pd-state-error">
+                <Icon name="close" size={18} />
+                <span>{loadMoreErr}</span>
+              </div>
+            )}
             {nextCursor != null && (
               <button className="pd-loadmore" onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? 'Loading…' : 'Load more'}
+                {loadingMore ? 'Loading…' : loadMoreErr ? 'Retry' : 'Load more'}
               </button>
             )}
           </>

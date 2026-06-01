@@ -27,9 +27,8 @@ App
    │  ├─ OrderBook    h1 + count · ChipGroup×2 + city field · OrderCard list · Load more
    │  ├─ OrderDetail  hero amount · MakerCard(Trusted) · GiveOptions · Note · [responder|maker]
    │  ├─ CreateOrder  StepForm 1→2→3  (want → give options → note+preview)
-   │  ├─ MyOrders     OrderCard list → maker detail
-   │  ├─ Alerts       subscription form + list
-   │  └─ Profile      identity · stats · contact-privacy note
+   │  ├─ Deals        my orders + my responses (unified) → detail
+   │  └─ Profile      identity · stats · alerts · admin · contact-privacy note
    ├─ TabBar          Book · Create · Deals · Profile   (top-level only)
    └─ MainButton      primary CTA, native (Respond / Continue / Publish)
 ```
