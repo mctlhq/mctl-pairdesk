@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
 import { applyTheme, ready } from './tg.js';
+import './pairdesk-tokens.css';
 import './styles.css';
 
 ready();

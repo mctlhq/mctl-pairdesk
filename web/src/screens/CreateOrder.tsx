@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api.js';
-import { fmtAmount } from '../components.js';
+import { AssetSelect, fmtAmount, Icon, OrderCard, RateChip, Stepper } from '../components.js';
 import { haptic } from '../tg.js';
 import { ASSETS, type Asset, PAYMENT_METHODS } from '../types.js';
+import type { Order } from '../types.js';
 
 interface OptDraft {
   asset: Asset;
   max_rate: string;
   payment_methods: string[];
 }
+
+const METHOD_LABELS: Record<string, string> = {
+  bank_transfer: 'Bank', cash: 'Cash', TRC20: 'TRC20', ERC20: 'ERC20', TON: 'TON', other: 'Other',
+};
+const GLYPH: Record<string, string> = { EUR: '€', RUB: '₽', USDT: '₮' };
 
 export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) {
   const [step, setStep] = useState(1);
@@ -27,11 +33,8 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
     setOpts((prev) => prev.map((o, idx) => (idx === i ? { ...o, ...patch } : o)));
   }
   function toggleMethod(i: number, m: string) {
-    setOpts((prev) =>
-      prev.map((o, idx) =>
-        idx === i ? { ...o, payment_methods: o.payment_methods.includes(m) ? o.payment_methods.filter((x) => x !== m) : [...o.payment_methods, m] } : o,
-      ),
-    );
+    setOpts((prev) => prev.map((o, idx) =>
+      idx === i ? { ...o, payment_methods: o.payment_methods.includes(m) ? o.payment_methods.filter((x) => x !== m) : [...o.payment_methods, m] } : o));
   }
   function addOpt() {
     const free = availFor(opts.length);
@@ -42,90 +45,143 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   const amountValid = /^\d+(\.\d+)?$/.test(wantAmount) && Number.parseFloat(wantAmount) > 0;
 
   async function submit() {
-    setBusy(true);
-    setErr(null);
+    setBusy(true); setErr(null);
     try {
       const order = await api.post<{ id: number }>('/orders', {
-        want_asset: wantAsset,
-        want_amount: wantAmount,
-        location_city: city.trim() || null,
-        comment: comment.trim() || null,
-        give_options: opts.map((o) => ({
-          asset: o.asset,
-          max_rate: o.max_rate.trim() ? o.max_rate.trim() : null,
-          payment_methods: o.payment_methods,
-        })),
+        want_asset: wantAsset, want_amount: wantAmount,
+        location_city: city.trim() || null, comment: comment.trim() || null,
+        give_options: opts.map((o) => ({ asset: o.asset, max_rate: o.max_rate.trim() || null, payment_methods: o.payment_methods })),
       });
       haptic('success');
       onCreated(order.id);
     } catch (e) {
       haptic('error');
       setErr(e instanceof ApiError ? e.message : (e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
+  const previewOrder: Order = {
+    id: 0, want_asset: wantAsset, want_amount: wantAmount || '0', status: 'active',
+    location_city: city || null, location_country: null, comment: null,
+    created_by_user_id: 0, created_at: new Date().toISOString(), expires_at: null,
+    give_options: opts.map((o, i) => ({
+      id: i, asset: o.asset, max_rate: o.max_rate || null, payment_methods: o.payment_methods,
+      reference_rate: null, reference_source: null, delta_percent: null,
+    })),
+    maker: null,
+  };
+
   return (
-    <div>
-      <h1>New request</h1>
-      <p className="muted small">Step {step} of 2</p>
+    <div className="pd-page">
+      <div className="pd-page-head">
+        <h1 className="pd-h1">New request</h1>
+        <Stepper step={step} total={3} />
+      </div>
 
       {step === 1 && (
-        <div className="stack">
-          <div>
-            <label>I want to receive</label>
-            <select value={wantAsset} onChange={(e) => setWantAsset(e.target.value as Asset)}>
-              {ASSETS.map((a) => <option key={a}>{a}</option>)}
-            </select>
+        <div className="pd-form-multi">
+          <div className="pd-form-section">
+            <div className="pd-form-section-head">
+              <span className="pd-form-n pd-num">1</span>
+              <span className="pd-form-title">I want to receive</span>
+            </div>
+            <AssetSelect value={wantAsset} onChange={(a) => {
+              setWantAsset(a);
+              setOpts((p) => p.map((o) => o.asset === a ? { ...o, asset: availFor(0)[0] ?? o.asset } : o));
+            }} />
+            <span className="pd-label">Amount</span>
+            <div className="pd-amount-field">
+              <span className="pd-amount-glyph">{GLYPH[wantAsset]}</span>
+              <input className="pd-input pd-input-amount pd-num" inputMode="decimal" placeholder="1000"
+                value={wantAmount} onChange={(e) => setWantAmount(e.target.value)} />
+              <span className="pd-amount-code">{wantAsset}</span>
+            </div>
+            <span className="pd-label">City <span className="pd-label-opt">· optional</span></span>
+            <div className="pd-field">
+              <Icon name="pin" size={16} cls="pd-field-ic" />
+              <input className="pd-input" placeholder="e.g. Bar" value={city} onChange={(e) => setCity(e.target.value)} />
+            </div>
           </div>
-          <div>
-            <label>Amount</label>
-            <input value={wantAmount} onChange={(e) => setWantAmount(e.target.value)} inputMode="decimal" placeholder="1000" />
-          </div>
-          <div>
-            <label>City (optional)</label>
-            <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Bar" />
-          </div>
-          <button disabled={!amountValid} onClick={() => { setOpts((p) => p.map((o) => (o.asset === wantAsset ? { ...o, asset: availFor(0)[0] ?? o.asset } : o))); setStep(2); }}>
-            Next
-          </button>
+          <button className="pd-btn-block" disabled={!amountValid} onClick={() => setStep(2)}>Continue</button>
         </div>
       )}
 
       {step === 2 && (
-        <div className="stack">
-          <label>I will give (one of these alternatives)</label>
-          {opts.map((o, i) => (
-            <div className="card" key={i}>
-              <div className="row">
-                <select value={o.asset} onChange={(e) => updateOpt(i, { asset: e.target.value as Asset })} style={{ flex: 1 }}>
-                  {[o.asset, ...availFor(i)].filter((v, idx, arr) => arr.indexOf(v) === idx).map((a) => <option key={a}>{a}</option>)}
-                </select>
-                {opts.length > 1 && <button className="ghost" onClick={() => setOpts((p) => p.filter((_, idx) => idx !== i))}>Remove</button>}
-              </div>
-              <label>Max rate ({o.asset} per {wantAsset}) — optional</label>
-              <input value={o.max_rate} onChange={(e) => updateOpt(i, { max_rate: e.target.value })} inputMode="decimal" placeholder="e.g. 99" />
-              <RatePreview base={wantAsset} quote={o.asset} userRate={o.max_rate} />
-              <label>Payment methods</label>
-              <div className="row wrap">
-                {PAYMENT_METHODS.map((m) => (
-                  <button type="button" key={m} className={o.payment_methods.includes(m) ? 'pill on' : 'pill'} onClick={() => toggleMethod(i, m)}>
-                    {m}
-                  </button>
-                ))}
-              </div>
+        <div className="pd-form-multi">
+          <div className="pd-form-section">
+            <div className="pd-form-section-head">
+              <span className="pd-form-n pd-num">2</span>
+              <span className="pd-form-title">I will give — one of these</span>
             </div>
-          ))}
-          {opts.length < ASSETS.length - 1 && <button className="secondary" onClick={addOpt}>+ Add alternative</button>}
+            <p className="pd-form-sub">Add the assets you can pay with. Rate is optional; we'll show how it compares to CBR.</p>
+            <div className="pd-give-editors">
+              {opts.map((o, i) => (
+                <div className="pd-give-editor" key={i}>
+                  <div className="pd-row pd-give-editor-head">
+                    <div className="pd-segmini">
+                      {[o.asset, ...availFor(i)].filter((v, idx, arr) => arr.indexOf(v) === idx).map((a) => (
+                        <button key={a} type="button"
+                          className={`pd-segmini-opt${o.asset === a ? ' is-on' : ''}`}
+                          onClick={() => updateOpt(i, { asset: a as Asset })}>
+                          {a}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="pd-spacer" />
+                    {opts.length > 1 && <button className="pd-btn-ghost-sm" onClick={() => setOpts((p) => p.filter((_, idx) => idx !== i))}>Remove</button>}
+                  </div>
+                  <span className="pd-label">Max rate <span className="pd-label-opt">· {o.asset}/{wantAsset} · optional</span></span>
+                  <input className="pd-input pd-num" inputMode="decimal"
+                    placeholder="e.g. 99"
+                    value={o.max_rate} onChange={(e) => updateOpt(i, { max_rate: e.target.value })} />
+                  <RatePreview base={wantAsset} quote={o.asset} userRate={o.max_rate} />
+                  <span className="pd-label">Payment methods</span>
+                  <div className="pd-chips pd-chips-wrap" style={{ marginTop: 4 }}>
+                    {PAYMENT_METHODS.map((m) => (
+                      <button key={m} type="button"
+                        className={`pd-chip pd-chip-sm${o.payment_methods.includes(m) ? ' is-on' : ''}`}
+                        onClick={() => toggleMethod(i, m)}>
+                        {METHOD_LABELS[m] ?? m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {opts.length < ASSETS.length - 1 && (
+              <button className="pd-add-alt" onClick={addOpt}>
+                <Icon name="plus" size={16} stroke={2} />Add alternative
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={() => setStep(1)}>Back</button>
+            <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} onClick={() => setStep(3)}>Continue</button>
+          </div>
+        </div>
+      )}
 
-          <label>Note (optional)</label>
-          <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="e.g. can meet this evening" />
-
-          {err && <p className="error">{err}</p>}
-          <div className="row">
-            <button className="secondary" onClick={() => setStep(1)}>Back</button>
-            <button style={{ flex: 1 }} disabled={busy} onClick={() => void submit()}>{busy ? 'Publishing…' : 'Publish request'}</button>
+      {step === 3 && (
+        <div className="pd-form-multi">
+          <div className="pd-form-section">
+            <div className="pd-form-section-head">
+              <span className="pd-form-n pd-num">3</span>
+              <span className="pd-form-title">Note & preview</span>
+            </div>
+            <p className="pd-form-sub">Anything that helps a counterparty — timing, area, preferences.</p>
+            <textarea className="pd-input" placeholder="e.g. can meet near the marina this evening"
+              value={comment} onChange={(e) => setComment(e.target.value)} />
+            <div className="pd-preview">
+              <span className="pd-preview-tag">Preview</span>
+              <OrderCard order={previewOrder} variant="rate" />
+            </div>
+          </div>
+          {err && <p style={{ color: 'var(--pd-far)', fontSize: 13, margin: '0 0 8px' }}>{err}</p>}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={() => setStep(2)}>Back</button>
+            <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={busy} onClick={() => void submit()}>
+              {busy ? 'Publishing…' : 'Publish request'}
+            </button>
           </div>
         </div>
       )}
@@ -133,34 +189,29 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   );
 }
 
-/** Live CBR reference + deviation for one give option. */
 function RatePreview({ base, quote, userRate }: { base: Asset; quote: Asset; userRate: string }) {
   const [ref, setRef] = useState<number | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     let cancel = false;
-    setRef(null);
-    setUnavailable(false);
-    api
-      .get<{ rate: number }>(`/rates/reference?base=${base}&quote=${quote}`)
+    setRef(null); setUnavailable(false);
+    api.get<{ rate: number }>(`/rates/reference?base=${base}&quote=${quote}`)
       .then((r) => !cancel && setRef(r.rate))
       .catch(() => !cancel && setUnavailable(true));
     return () => { cancel = true; };
   }, [base, quote]);
 
-  if (unavailable) return <p className="muted small">Reference rate unavailable — order can still be published.</p>;
-  if (ref == null) return <p className="muted small">Loading reference…</p>;
+  if (unavailable) return <p className="pd-rate-hint">Reference rate unavailable — order can still be published.</p>;
+  if (ref == null) return <p className="pd-rate-hint">Loading reference…</p>;
 
   const ur = Number.parseFloat(userRate);
-  const hasRate = Number.isFinite(ur) && ur > 0;
-  const delta = hasRate ? ((ur - ref) / ref) * 100 : null;
-  const big = delta != null && Math.abs(delta) > 10;
+  const has = Number.isFinite(ur) && ur > 0;
+  const delta = has ? ((ur - ref) / ref) * 100 : null;
   return (
-    <p className={`small ${big ? 'neg' : 'muted'}`}>
-      CBR reference ≈ {fmtAmount(ref)} {quote}/{base}
-      {delta != null && ` · your rate is ${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
-      {big && ' — far from market, may be flagged'}
-    </p>
+    <div className="pd-rate-preview">
+      <span className="pd-rate-ref">CBR ≈ <span className="pd-num">{fmtAmount(ref)}</span> {quote}/{base}</span>
+      {delta != null && <RateChip delta={delta.toFixed(1)} style="chip" />}
+    </div>
   );
 }
