@@ -270,6 +270,67 @@ button.pd-card:active { opacity: .8; transform: scale(.995); }
 .pd-card-rate .pd-card-foot    { gap: 6px; }
 .pd-card-rate .pd-when         { font-size: var(--pd-fs-meta); color: var(--pd-hint); }
 
+/* Outcome card — amount-first order book variant */
+.pd-card-outcome .pd-oc-offered {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+.pd-card-outcome .pd-oc-amt {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.pd-card-outcome .pd-oc-code {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--pd-text-2);
+  align-self: flex-end;
+  margin-bottom: 2px;
+}
+.pd-card-outcome .pd-oc-amt-tbd { color: var(--pd-hint); }
+.pd-card-outcome .pd-oc-arrow {
+  padding: 2px 0 4px 14px;
+  display: flex;
+  align-items: center;
+}
+.pd-card-outcome .pd-oc-arrow-sym {
+  color: var(--pd-hint);
+  font-size: 18px;
+  line-height: 1;
+}
+.pd-card-outcome .pd-oc-gives {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.pd-card-outcome .pd-oc-give-row { display: flex; flex-direction: column; gap: 3px; }
+.pd-card-outcome .pd-oc-give {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pd-card-outcome .pd-oc-or {
+  font-size: 11px;
+  color: var(--pd-hint);
+  font-weight: 500;
+  padding-left: 14px;
+  font-style: italic;
+}
+.pd-card-outcome .pd-oc-methods {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-left: 2px;
+}
+.pd-card-outcome .pd-card-divider { height: 1px; background: var(--pd-border); margin-bottom: 10px; }
+.pd-card-outcome .pd-card-foot    { gap: 6px; }
+.pd-card-outcome .pd-when         { font-size: var(--pd-fs-meta); color: var(--pd-hint); }
+
 /* ---- Give row (detail + rate card) ---------------------------------------- */
 .pd-give {
   padding: var(--pd-sp-3) 0;

@@ -85,7 +85,7 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
         </div>
 
         <div className="pd-filter-block">
-          <span className="pd-filter-label">Pays in</span>
+          <span className="pd-filter-label">Offers</span>
           <div className="pd-chips">
             <button
               className={`pd-chip${give === '' ? ' is-on' : ''}`}
@@ -125,7 +125,7 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
         ) : (
           <>
             {orders.map((o) => (
-              <OrderCard key={o.id} order={o} onOpen={onOpen} variant="rate" />
+              <OrderCard key={o.id} order={o} onOpen={onOpen} variant="outcome" />
             ))}
             {nextCursor != null && (
               <button className="pd-loadmore" onClick={loadMore} disabled={loadingMore}>

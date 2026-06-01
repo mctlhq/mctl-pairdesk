@@ -233,8 +233,8 @@ export function fmtAmount(s: string | number | null | undefined): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 8 });
 }
 
-// ---- OrderCard (3 variants) ------------------------------------------------
-type OrderCardVariant = 'standard' | 'compact' | 'rate';
+// ---- OrderCard (4 variants) ------------------------------------------------
+type OrderCardVariant = 'standard' | 'compact' | 'rate' | 'outcome';
 
 function bestDelta(order: Order): string | null {
   const ds = order.give_options
@@ -256,6 +256,58 @@ export function OrderCard({
   rateStyle?: RateStyle;
 }) {
   const tap = onOpen ? () => onOpen(order.id) : undefined;
+
+  if (variant === 'outcome') {
+    const qty = Number.parseFloat(order.want_amount);
+    return (
+      <button className="pd-card pd-card-outcome" onClick={tap}>
+        <div className="pd-oc-offered">
+          <Glyph asset={order.want_asset} size="md" />
+          <span className="pd-oc-amt pd-num">{fmtAmount(order.want_amount)}</span>
+          <span className="pd-oc-code">{order.want_asset}</span>
+        </div>
+        <div className="pd-oc-arrow"><span className="pd-oc-arrow-sym" aria-hidden="true">↓</span></div>
+        <div className="pd-oc-gives">
+          {order.give_options.map((g, i) => {
+            const rate = g.max_rate ? Number.parseFloat(g.max_rate) : null;
+            const total = rate != null && Number.isFinite(qty) && Number.isFinite(rate) ? qty * rate : null;
+            return (
+              <div key={g.id} className="pd-oc-give-row">
+                {i > 0 && <span className="pd-oc-or">or</span>}
+                <div className="pd-oc-give">
+                  <Glyph asset={g.asset} size="md" />
+                  {total != null ? (
+                    <span className="pd-oc-amt pd-num">{fmtAmount(total)}</span>
+                  ) : (
+                    <span className="pd-oc-amt pd-oc-amt-tbd">—</span>
+                  )}
+                  <span className="pd-oc-code">{g.asset}</span>
+                  {g.payment_methods.length > 0 && (
+                    <span className="pd-oc-methods">
+                      {g.payment_methods.map((m) => (
+                        <span className="pd-method" key={m}>{PD_METHOD_LABEL[m] ?? m}</span>
+                      ))}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="pd-card-divider" />
+        <div className="pd-row pd-card-foot">
+          <Maker
+            maker={order.maker}
+            sub={order.location_city ? (
+              <><Icon name="pin" size={12} cls="pd-mut-ic" />{order.location_city}</>
+            ) : undefined}
+          />
+          <span className="pd-spacer" />
+          <span className="pd-when pd-num">{fmtRelTime(order.created_at)}</span>
+        </div>
+      </button>
+    );
+  }
 
   if (variant === 'compact') {
     return (
