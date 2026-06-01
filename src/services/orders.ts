@@ -108,11 +108,30 @@ function normalizeInput(input: CreateOrderInput): {
  * Create an active order with its give options, then take a per-option market
  * reference snapshot (best-effort — a missing rate just omits the warning).
  */
+/** Maximum allowed deviation from CBR reference rate, in percent. */
+const MAX_RATE_DEVIATION_PCT = 10;
+
 export async function createOrder(
   ctx: AuthContext,
   input: CreateOrderInput,
 ): Promise<Record<string, unknown>> {
   const n = normalizeInput(input);
+
+  // Rate-deviation gate: reject orders where the specified rate deviates more than
+  // ±MAX_RATE_DEVIATION_PCT from CBR. Skipped when the reference rate is unavailable
+  // (external source down) so a missing rate never silently blocks a legitimate order.
+  for (const opt of n.options) {
+    if (opt.maxRate == null) continue;
+    const ref = await getReferenceRate(n.wantAsset, opt.asset);
+    if (!ref) continue;
+    const delta = deltaPercent(Number.parseFloat(opt.maxRate), ref.rate);
+    if (Math.abs(delta) > MAX_RATE_DEVIATION_PCT) {
+      throw new AppError(
+        400,
+        `Rate for ${opt.asset} deviates ${delta > 0 ? '+' : ''}${delta.toFixed(1)}% from market (CBR ≈ ${ref.rate} ${opt.asset}/${n.wantAsset}). Maximum allowed: ±${MAX_RATE_DEVIATION_PCT}%.`,
+      );
+    }
+  }
 
   const { orderId, optionIds } = await withTransaction(async (client) => {
     const { rows } = await client.query<{ id: number }>(

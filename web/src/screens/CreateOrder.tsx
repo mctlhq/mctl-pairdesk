@@ -20,6 +20,9 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   const [opts, setOpts] = useState<OptDraft[]>([{ asset: 'RUB', max_rate: '', payment_methods: [] }]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // tracks which give-option indices have a rate outside ±10% of CBR
+  const [rateViolations, setRateViolations] = useState<Record<number, boolean>>({});
+  const hasRateViolation = Object.values(rateViolations).some(Boolean);
 
   const availFor = (idx: number): Asset[] =>
     ASSETS.filter((a) => a !== wantAsset && !opts.some((o, i) => i !== idx && o.asset === a));
@@ -134,7 +137,8 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                   <input className="pd-input pd-num" inputMode="decimal"
                     placeholder="e.g. 99"
                     value={o.max_rate} onChange={(e) => updateOpt(i, { max_rate: e.target.value })} />
-                  <RatePreview base={wantAsset} quote={o.asset} userRate={o.max_rate} />
+                  <RatePreview base={wantAsset} quote={o.asset} userRate={o.max_rate}
+                    onViolation={(v) => setRateViolations((p) => ({ ...p, [i]: v }))} />
                   <span className="pd-label">Payment methods</span>
                   <div className="pd-chips pd-chips-wrap" style={{ marginTop: 4 }}>
                     {PAYMENT_METHODS.map((m) => (
@@ -156,7 +160,9 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={() => setStep(1)}>Back</button>
-            <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} onClick={() => setStep(3)}>Continue</button>
+            <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={hasRateViolation} onClick={() => setStep(3)}>
+              {hasRateViolation ? 'Fix rate to continue' : 'Continue'}
+            </button>
           </div>
         </div>
       )}
@@ -189,7 +195,11 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   );
 }
 
-function RatePreview({ base, quote, userRate }: { base: Asset; quote: Asset; userRate: string }) {
+const MAX_DEVIATION_PCT = 10;
+
+function RatePreview({ base, quote, userRate, onViolation }: {
+  base: Asset; quote: Asset; userRate: string; onViolation?: (violated: boolean) => void;
+}) {
   const [ref, setRef] = useState<number | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
@@ -198,9 +208,17 @@ function RatePreview({ base, quote, userRate }: { base: Asset; quote: Asset; use
     setRef(null); setUnavailable(false);
     api.get<{ rate: number }>(`/rates/reference?base=${base}&quote=${quote}`)
       .then((r) => !cancel && setRef(r.rate))
-      .catch(() => !cancel && setUnavailable(true));
+      .catch(() => { if (!cancel) { setUnavailable(true); onViolation?.(false); } });
     return () => { cancel = true; };
   }, [base, quote]);
+
+  useEffect(() => {
+    if (ref == null || unavailable) return;
+    const ur = Number.parseFloat(userRate);
+    const has = Number.isFinite(ur) && ur > 0;
+    const delta = has ? ((ur - ref) / ref) * 100 : null;
+    onViolation?.(delta != null && Math.abs(delta) > MAX_DEVIATION_PCT);
+  }, [ref, userRate, unavailable]);
 
   if (unavailable) return <p className="pd-rate-hint">Reference rate unavailable — order can still be published.</p>;
   if (ref == null) return <p className="pd-rate-hint">Loading reference…</p>;
@@ -208,10 +226,19 @@ function RatePreview({ base, quote, userRate }: { base: Asset; quote: Asset; use
   const ur = Number.parseFloat(userRate);
   const has = Number.isFinite(ur) && ur > 0;
   const delta = has ? ((ur - ref) / ref) * 100 : null;
+  const violated = delta != null && Math.abs(delta) > MAX_DEVIATION_PCT;
+
   return (
-    <div className="pd-rate-preview">
-      <span className="pd-rate-ref">CBR ≈ <span className="pd-num">{fmtAmount(ref)}</span> {quote}/{base}</span>
-      {delta != null && <RateChip delta={delta.toFixed(1)} style="chip" />}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div className="pd-rate-preview">
+        <span className="pd-rate-ref">CBR ≈ <span className="pd-num">{fmtAmount(ref)}</span> {quote}/{base}</span>
+        {delta != null && <RateChip delta={delta.toFixed(1)} style="chip" />}
+      </div>
+      {violated && (
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--pd-far)', fontWeight: 600 }}>
+          Rate deviates {delta! > 0 ? '+' : ''}{delta!.toFixed(1)}% from CBR — maximum ±{MAX_DEVIATION_PCT}%. Adjust the rate to continue.
+        </p>
+      )}
     </div>
   );
 }
