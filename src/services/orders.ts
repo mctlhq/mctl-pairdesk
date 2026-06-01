@@ -261,7 +261,9 @@ export async function listOrders(
     params,
   );
   if (orders.length === 0) return { orders: [], next_cursor: null };
-  const assembled = await assembleOrders(orders);
+  // withSnapshots: the order-book cards surface the per-option market-reference
+  // deviation, so the list must carry the rate snapshots (not just the detail view).
+  const assembled = await assembleOrders(orders, true);
   // Emit next_cursor only when a full page was returned — i.e. there may be more.
   const next_cursor = orders.length === limit ? (orders[orders.length - 1]?.id ?? null) : null;
   return { orders: assembled, next_cursor };
@@ -276,7 +278,8 @@ export async function listMyOrders(communityId: number, userId: number): Promise
     [communityId, userId],
   );
   if (rows.length === 0) return [];
-  return assembleOrders(rows);
+  // Same as listOrders: "My orders" cards show the market-reference chip too.
+  return assembleOrders(rows, true);
 }
 
 /** Full detail for a single order (any status), or null if not found / deleted. */
