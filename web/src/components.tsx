@@ -26,6 +26,8 @@ export const PD_GLYPH: Record<string, string> = { EUR: '€', RUB: '₽', USDT: 
 export const PD_METHOD_LABEL: Record<string, string> = {
   bank_transfer: 'Bank',
   cash: 'Cash',
+  wirex: 'Wirex',
+  wise: 'Wise',
   TRC20: 'TRC20',
   ERC20: 'ERC20',
   TON: 'TON',
