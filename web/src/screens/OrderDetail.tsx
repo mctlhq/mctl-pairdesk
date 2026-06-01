@@ -9,6 +9,7 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
   const [deals, setDeals] = useState<Deal[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [o, d] = await Promise.all([
@@ -19,7 +20,14 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
     setDeals(d.deals);
   }, [orderId]);
 
-  useEffect(() => { void load(); }, [load]);
+  // Initial fetch needs its own error path — a failed first load would otherwise
+  // leave the screen stuck on "Loading…" with no way out. run() only covers actions.
+  const loadInitial = useCallback(() => {
+    setLoadErr(null);
+    load().catch((e) => setLoadErr(e instanceof ApiError ? e.message : (e as Error).message));
+  }, [load]);
+
+  useEffect(() => { loadInitial(); }, [loadInitial]);
   useEffect(() => showBackButton(onBack), [onBack]);
 
   async function run(fn: () => Promise<unknown>, ok: string) {
@@ -53,7 +61,25 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
     });
   }, [busy, canRespond, respond]);
 
-  if (!order) return <div className="pd-content"><p className="pd-muted-row">Loading…</p></div>;
+  if (!order) {
+    return (
+      <div className="pd-content">
+        {loadErr ? (
+          <>
+            <div className="pd-state-card pd-state-error">
+              <Icon name="close" size={18} />
+              <span>{loadErr}</span>
+            </div>
+            <button className="pd-btn-ghost-sm" style={{ width: '100%', marginTop: 12, justifyContent: 'center' }} onClick={loadInitial}>
+              Retry
+            </button>
+          </>
+        ) : (
+          <p className="pd-muted-row">Loading…</p>
+        )}
+      </div>
+    );
+  }
 
   const requests = deals.filter((d) => d.status === 'requested');
   const acceptedDeal = deals.find((d) => d.status === 'accepted' || d.status === 'completed');

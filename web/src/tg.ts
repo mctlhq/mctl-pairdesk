@@ -157,6 +157,13 @@ export function showBackButton(cb: () => void): () => void {
 // active onClick so re-registration never stacks handlers, and (b) deferring the
 // hide one frame so an immediately-following setMainButton can cancel it — a real
 // teardown (navigating to a screen with no MainButton) still hides next frame.
+//
+// SINGLE-CONSUMER ASSUMPTION: at most one MainButton consumer is mounted at a
+// time. The App renders exactly one screen (OrderDetail replaces the tab content
+// via an early return), and within a screen the button-owning branches are
+// mutually exclusive by state. If that ever changes (a composite screen mounting
+// two consumers), the deferred hide from screen A's cleanup could offClick/hide
+// screen B's still-active button — switch this module to a small refcount then.
 let activeOnClick: (() => void) | null = null;
 let pendingHide: number | null = null;
 

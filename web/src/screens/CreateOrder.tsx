@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api.js';
 import { AssetSelect, fmtAmount, Icon, OrderCard, PD_GLYPH, PD_METHOD_LABEL, RateChip, Stepper } from '../components.js';
 import { hasMainButton, hapticError, hapticSelection, hapticSuccess, setMainButton, showBackButton } from '../tg.js';
@@ -6,6 +6,7 @@ import { ASSETS, type Asset, PAYMENT_METHODS } from '../types.js';
 import type { Order } from '../types.js';
 
 interface OptDraft {
+  id: number;       // stable across reorders/removals so RatePreview keeps its state
   asset: Asset;
   max_rate: string;
   payment_methods: string[];
@@ -17,10 +18,11 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   const [wantAmount, setWantAmount] = useState('');
   const [city, setCity] = useState('');
   const [comment, setComment] = useState('');
-  const [opts, setOpts] = useState<OptDraft[]>([{ asset: 'RUB', max_rate: '', payment_methods: [] }]);
+  const [opts, setOpts] = useState<OptDraft[]>(() => [{ id: 0, asset: 'RUB', max_rate: '', payment_methods: [] }]);
+  const optSeq = useRef(1);  // next stable give-option id
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  // tracks which give-option indices have a rate outside ±10% of the market reference
+  // tracks which give-option ids have a rate outside ±10% of the market reference
   const [rateViolations, setRateViolations] = useState<Record<number, boolean>>({});
   const hasRateViolation = Object.values(rateViolations).some(Boolean);
 
@@ -41,7 +43,8 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
     const free = availFor(opts.length);
     if (free.length === 0) return;
     hapticSelection();
-    setOpts((p) => [...p, { asset: free[0]!, max_rate: '', payment_methods: [] }]);
+    const id = optSeq.current++;
+    setOpts((p) => [...p, { id, asset: free[0]!, max_rate: '', payment_methods: [] }]);
   }
 
   const amountValid = /^\d+(\.\d+)?$/.test(wantAmount) && Number.parseFloat(wantAmount) > 0;
@@ -81,14 +84,20 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
     void submit();
   }
 
+  // Hold the latest primaryAction in a ref so the effect can depend only on what
+  // changes the button's appearance (text/enabled/loading/step) — not on every
+  // keystroke. The stable onClick still calls the freshest closure via the ref.
+  const primaryActionRef = useRef(primaryAction);
+  primaryActionRef.current = primaryAction;
+
   useEffect(() => {
     return setMainButton({
       text: nextText,
       enabled: nextEnabled,
       loading: busy,
-      onClick: primaryAction,
+      onClick: () => primaryActionRef.current(),
     });
-  }, [busy, nextEnabled, nextText, step, amountValid, hasRateViolation, wantAsset, wantAmount, city, comment, opts]);
+  }, [busy, nextEnabled, nextText, step]);
 
   useEffect(() => {
     if (step === 1) return undefined;
@@ -157,7 +166,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
             <p className="pd-form-sub">Add the assets you can pay with. Rate is optional; we'll show how it compares to the market reference.</p>
             <div className="pd-give-editors">
               {opts.map((o, i) => (
-                <div className="pd-give-editor" key={i}>
+                <div className="pd-give-editor" key={o.id}>
                   <div className="pd-row pd-give-editor-head">
                     <div className="pd-segmini">
                       {[o.asset, ...availFor(i)].filter((v, idx, arr) => arr.indexOf(v) === idx).map((a) => (
@@ -171,7 +180,8 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                     <span className="pd-spacer" />
                     {opts.length > 1 && <button className="pd-btn-ghost-sm" onClick={() => {
                       setOpts((p) => p.filter((_, idx) => idx !== i));
-                      setRateViolations({});  // RatePreview effects repopulate for remaining options
+                      // Drop only the removed option's entry; stable ids keep the rest valid.
+                      setRateViolations((p) => { const { [o.id]: _drop, ...rest } = p; return rest; });
                     }}>Remove</button>}
                   </div>
                   <span className="pd-label">Max rate <span className="pd-label-opt">· {o.asset}/{wantAsset} · optional</span></span>
@@ -179,7 +189,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                     placeholder="e.g. 99"
                     value={o.max_rate} onChange={(e) => updateOpt(i, { max_rate: e.target.value })} />
                   <RatePreview base={wantAsset} quote={o.asset} userRate={o.max_rate} wantAmount={wantAmount}
-                    onViolation={(v) => setRateViolations((p) => ({ ...p, [i]: v }))} />
+                    onViolation={(v) => setRateViolations((p) => ({ ...p, [o.id]: v }))} />
                   <span className="pd-label">Payment methods</span>
                   <div className="pd-chips pd-chips-wrap" style={{ marginTop: 4 }}>
                     {PAYMENT_METHODS.map((m) => (
