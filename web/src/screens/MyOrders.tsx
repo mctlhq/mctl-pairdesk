@@ -12,14 +12,16 @@ export function MyOrders({ onOpen }: { onOpen: (id: number) => void }) {
   }, []);
 
   return (
-    <div>
-      <h1>My orders</h1>
+    <div className="pd-page">
+      <h1 className="pd-h1">My orders</h1>
       {loading ? (
-        <p className="muted">Loading…</p>
+        <p className="pd-muted-row">Loading…</p>
       ) : orders.length === 0 ? (
-        <Empty text="You haven't created any orders yet." />
+        <Empty text="No orders yet. Create one from the Order book tab." />
       ) : (
-        orders.map((o) => <OrderCard key={o.id} order={o} onOpen={onOpen} />)
+        <div className="pd-list">
+          {orders.map((o) => <OrderCard key={o.id} order={o} onOpen={onOpen} variant="rate" />)}
+        </div>
       )}
     </div>
   );

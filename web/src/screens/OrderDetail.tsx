@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api.js';
-import { Badge, fmtAmount, GiveOptions } from '../components.js';
+import { Badge, fmtAmount, GiveRow, Icon, Maker, PD_GLYPH } from '../components.js';
 import { haptic, showBackButton } from '../tg.js';
 import type { Deal, Me, Order } from '../types.js';
 
@@ -19,14 +19,11 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
     setDeals(d.deals);
   }, [orderId]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
   useEffect(() => showBackButton(onBack), [onBack]);
 
   async function run(fn: () => Promise<unknown>, ok: string) {
-    setBusy(true);
-    setMsg(null);
+    setBusy(true); setMsg(null);
     try {
       await fn();
       haptic('success');
@@ -35,12 +32,10 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
     } catch (e) {
       haptic('error');
       setMsg(e instanceof ApiError ? e.message : (e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
-  if (!order) return <div className="content"><p className="muted">Loading…</p></div>;
+  if (!order) return <div className="pd-content"><p className="pd-muted-row">Loading…</p></div>;
 
   const isMaker = me.id === order.created_by_user_id;
   const myDeal = deals.find((d) => d.responder_user_id === me.id);
@@ -48,74 +43,121 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
   const acceptedDeal = deals.find((d) => d.status === 'accepted' || d.status === 'completed');
 
   return (
-    <div className="content">
-      <button className="ghost" onClick={onBack}>← Back</button>
-      <div className="row">
-        <h1 style={{ margin: 0 }}>{fmtAmount(order.want_amount)} {order.want_asset}</h1>
-        <span className="spacer" />
-        <Badge status={order.status} />
+    <div className="pd-content">
+      <div className="pd-detail-hero">
+        <div className="pd-row">
+          <span className="pd-want pd-want-lg">
+            <span className={`pd-glyph pd-glyph-${order.want_asset} pd-glyph-lg`} aria-hidden="true">
+              {PD_GLYPH[order.want_asset] ?? order.want_asset[0]}
+            </span>
+            <span className="pd-want-amt pd-num">{fmtAmount(order.want_amount)}</span>
+            <span className="pd-want-code">{order.want_asset}</span>
+          </span>
+          <span className="pd-spacer" />
+          <Badge status={order.status} />
+        </div>
+        <div className="pd-detail-meta">
+          <span className="pd-meta-item"><Icon name="pin" size={14} cls="pd-mut-ic" />{order.location_city ?? 'Any location'}</span>
+          <span className="pd-dot-sep">·</span>
+          <span className="pd-meta-item">
+            <Icon name="clock" size={14} cls="pd-mut-ic" />
+            <span className="pd-num">{order.created_at ? new Date(order.created_at).toLocaleDateString() : ''}</span>
+          </span>
+        </div>
       </div>
-      <p className="muted small">
-        wants {order.want_asset}
-        {order.location_city ? ` in ${order.location_city}` : ''}
-        {order.maker ? ` · by ${order.maker.display_name || (order.maker.username ? '@' + order.maker.username : 'member')}` : ''}
-      </p>
 
-      <div className="card">
-        <h3>Will give (one of)</h3>
-        <GiveOptions order={order} />
-      </div>
-      {order.comment && <div className="card"><div className="muted small">Note</div>{order.comment}</div>}
-
-      {msg && <p className={msg.includes(' ') && /fail|error|cannot|already|not |is /.test(msg) ? 'error' : 'pos'}>{msg}</p>}
-
-      {/* Responder view */}
-      {!isMaker && (
-        <div className="stack">
-          {!myDeal && order.status === 'active' && (
-            <button disabled={busy} onClick={() => void run(() => api.post(`/orders/${order.id}/respond`), 'Response sent — the maker will review it.')}>
-              Respond to this order
-            </button>
-          )}
-          {myDeal && (
-            <div className="card">
-              <div className="row"><h3>Your response</h3><span className="spacer" /><Badge status={myDeal.status} /></div>
-              {myDeal.status === 'accepted' && <ContactPanel dealId={myDeal.id} me={me} onComplete={() => void run(() => api.post(`/deals/${myDeal.id}/complete`), 'Marked complete.')} busy={busy} />}
-              {myDeal.status === 'rejected' && <p className="muted small">This response was not selected.</p>}
-              {myDeal.status === 'completed' && <p className="pos small">Deal completed.</p>}
-            </div>
-          )}
+      {!isMaker && order.maker && (
+        <div className="pd-maker-card">
+          <Maker maker={order.maker} />
+          <span className="pd-spacer" />
+          <span className="pd-verified"><Icon name="shield" size={14} fill />Vetted</span>
         </div>
       )}
 
-      {/* Maker view */}
-      {isMaker && (
-        <div className="stack">
-          {order.status === 'active' && (
+      <div className="pd-section">
+        <div className="pd-section-head">
+          <span>Will give — one of</span>
+          <span className="pd-section-note">rate vs CBR</span>
+        </div>
+        <div className="pd-give-list">
+          {order.give_options.map((g) => <GiveRow key={g.id} g={g} base={order.want_asset} />)}
+        </div>
+      </div>
+
+      {order.comment && (
+        <div className="pd-note">
+          <span className="pd-note-label">Note from maker</span>
+          <p className="pd-note-body">{order.comment}</p>
+        </div>
+      )}
+
+      {msg && (
+        <p style={{ color: /fail|error|cannot|already|not |is /.test(msg) ? 'var(--pd-far)' : 'var(--pd-good)', fontSize: 13, margin: '0 0 12px' }}>
+          {msg}
+        </p>
+      )}
+
+      {!isMaker && (
+        <>
+          {!myDeal && order.status === 'active' && (
             <>
-              <h3>Responses ({requests.length})</h3>
-              {requests.length === 0 && <p className="muted small">No responses yet.</p>}
-              {requests.map((d) => (
-                <div className="card" key={d.id}>
-                  <div className="row">
-                    <span>Responder #{d.responder_user_id}</span>
-                    <span className="spacer" />
-                    <button className="secondary" disabled={busy} onClick={() => void run(() => api.post(`/deals/${d.id}/reject`), 'Response rejected.')}>Reject</button>
-                    <button disabled={busy} onClick={() => void run(() => api.post(`/deals/${d.id}/accept`), 'Accepted — contact details are now shared.')}>Accept</button>
-                  </div>
-                </div>
-              ))}
+              <div className="pd-safety">
+                <Icon name="shield" size={15} cls="pd-mut-ic" />
+                <span>PairDesk is a bulletin board — not a party to any deal. You arrange and settle directly.</span>
+              </div>
+              <button className="pd-btn-block" disabled={busy}
+                onClick={() => void run(() => api.post(`/orders/${order.id}/respond`), 'Response sent — the maker will review it.')}>
+                Respond to this order
+              </button>
             </>
           )}
-          {acceptedDeal && (
-            <div className="card">
-              <div className="row"><h3>Accepted deal</h3><span className="spacer" /><Badge status={acceptedDeal.status} /></div>
-              {acceptedDeal.status === 'accepted' && <ContactPanel dealId={acceptedDeal.id} me={me} onComplete={() => void run(() => api.post(`/deals/${acceptedDeal.id}/complete`), 'Marked complete.')} busy={busy} />}
-              {acceptedDeal.status === 'completed' && <p className="pos small">Deal completed.</p>}
+          {myDeal?.status === 'requested' && (
+            <div className="pd-status-card pd-status-pending">
+              <span className="pd-status-ic"><Icon name="clock" size={18} /></span>
+              <div>
+                <p className="pd-status-title">Response sent</p>
+                <p className="pd-status-sub">The maker will review and share contacts if accepted.</p>
+              </div>
             </div>
           )}
+          {(myDeal?.status === 'accepted' || myDeal?.status === 'completed') && myDeal && (
+            <ContactPanel dealId={myDeal.id} me={me} onComplete={() => void run(() => api.post(`/deals/${myDeal.id}/complete`), 'Marked complete.')} busy={busy} done={myDeal.status === 'completed'} />
+          )}
+          {myDeal?.status === 'rejected' && <p className="pd-muted-row">This response was not selected.</p>}
+        </>
+      )}
+
+      {isMaker && (
+        <div className="pd-section">
+          <div className="pd-section-head">
+            <span>Responses</span>
+            <span className="pd-section-count pd-num">{requests.length}</span>
+          </div>
+          {deals.length === 0 && <p className="pd-muted-row">No responses yet.</p>}
+          <div className="pd-resp-list">
+            {deals.map((d) => (
+              <div className={`pd-resp${d.status !== 'requested' ? ' is-resolved' : ''}`} key={d.id}>
+                <span className="pd-avatar">R</span>
+                <span className="pd-resp-meta">
+                  <span className="pd-maker-name">Responder #{d.responder_user_id}</span>
+                  <span className="pd-maker-sub"><Badge status={d.status} /></span>
+                </span>
+                <span className="pd-spacer" />
+                {d.status === 'requested' && order.status === 'active' ? (
+                  <span className="pd-resp-actions">
+                    <button className="pd-btn-ghost-sm" disabled={busy} onClick={() => void run(() => api.post(`/deals/${d.id}/reject`), 'Rejected.')}>Reject</button>
+                    <button className="pd-btn-accent-sm" disabled={busy} onClick={() => void run(() => api.post(`/deals/${d.id}/accept`), 'Accepted — contacts shared.')}>Accept</button>
+                  </span>
+                ) : <Badge status={d.status} />}
+              </div>
+            ))}
+          </div>
+          {acceptedDeal && (
+            <ContactPanel dealId={acceptedDeal.id} me={me} onComplete={() => void run(() => api.post(`/deals/${acceptedDeal.id}/complete`), 'Marked complete.')} busy={busy} done={acceptedDeal.status === 'completed'} />
+          )}
           {['active', 'reserved'].includes(order.status) && (
-            <button className="secondary" disabled={busy} onClick={() => void run(() => api.post(`/orders/${order.id}/cancel`), 'Order cancelled.')}>
+            <button className="pd-btn-ghost-sm" style={{ width: '100%', marginTop: 16, justifyContent: 'center' }}
+              disabled={busy} onClick={() => void run(() => api.post(`/orders/${order.id}/cancel`), 'Order cancelled.')}>
               Cancel order
             </button>
           )}
@@ -125,26 +167,20 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
   );
 }
 
-/** Loads the deal detail (contact reveal happens server-side) and shows contacts. */
-function ContactPanel({ dealId, me, onComplete, busy }: { dealId: number; me: Me; onComplete: () => void; busy: boolean }) {
+function ContactPanel({ dealId, me, onComplete, busy, done = false }: { dealId: number; me: Me; onComplete: () => void; busy: boolean; done?: boolean }) {
   const [deal, setDeal] = useState<Deal | null>(null);
-  useEffect(() => {
-    api.get<Deal>(`/deals/${dealId}`).then(setDeal).catch(() => setDeal(null));
-  }, [dealId]);
-
-  if (!deal) return <p className="muted small">Loading contact…</p>;
-  if (!deal.contacts_revealed) return <p className="muted small">Contact details unavailable.</p>;
-
-  const counterparty = me.id === deal.creator_user_id ? deal.responder_contact : deal.creator_contact;
+  useEffect(() => { api.get<Deal>(`/deals/${dealId}`).then(setDeal).catch(() => setDeal(null)); }, [dealId]);
+  if (!deal) return <p className="pd-muted-row">Loading contact…</p>;
+  if (!deal.contacts_revealed) return <p className="pd-muted-row">Contact details unavailable.</p>;
+  const cp = me.id === deal.creator_user_id ? deal.responder_contact : deal.creator_contact;
   return (
-    <div className="stack">
-      <p className="muted small">Arrange and settle directly. PairDesk is not a party to this deal.</p>
-      <div>
-        <div className="kv"><span className="k">Telegram</span><span>{counterparty?.username ? `@${counterparty.username}` : '—'}</span></div>
-        <div className="kv"><span className="k">Phone</span><span>{counterparty?.phone || '—'}</span></div>
-        <div className="kv"><span className="k">Details</span><span>{counterparty?.contact || '—'}</span></div>
-      </div>
-      <button disabled={busy} onClick={onComplete}>Mark deal complete</button>
+    <div className="pd-contact-card">
+      <div className="pd-contact-head"><Icon name="check" size={16} cls="pd-good-ic" /><span>Contacts shared</span></div>
+      <div className="pd-kv"><span className="pd-k">Telegram</span><span className="pd-v">{cp?.username ? `@${cp.username}` : '—'}</span></div>
+      <div className="pd-kv"><span className="pd-k">Phone</span><span className="pd-v pd-num">{cp?.phone ?? '—'}</span></div>
+      <div className="pd-kv"><span className="pd-k">Details</span><span className="pd-v">{cp?.contact ?? '—'}</span></div>
+      <p className="pd-contact-note">Arrange and settle directly. Mark the deal complete once done.</p>
+      {!done && <button className="pd-btn-block" disabled={busy} onClick={onComplete}>Mark deal complete</button>}
     </div>
   );
 }

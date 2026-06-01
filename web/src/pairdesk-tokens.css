@@ -1,0 +1,110 @@
+/* ============================================================================
+   PairDesk — design tokens  (Direction C · Trust / Banking)
+   Drop-in for the React + Vite Mini App. Replaces the ad-hoc vars in styles.css.
+
+   These tokens DERIVE from Telegram's themeParams (set as --tg-* by applyTheme()
+   in tg.ts) so the app stays native in both light and dark, then layer PairDesk's
+   own semantics (rate scale, elevation, radii, number font) on top.
+
+   Usage:
+     applyTheme();                       // sets --tg-* + documentElement.dataset.theme
+     <html data-theme="light|dark">      // already done by tg.ts
+   ============================================================================ */
+
+:root {
+  /* ---- map Telegram themeParams (with light fallbacks) ---- */
+  --pd-bg:            var(--tg-bg, #ffffff);
+  --pd-surface:       var(--tg-secondary-bg, #f4f7fb);   /* chips, fields, inset */
+  --pd-surface-2:     #ffffff;                            /* nested-on-surface   */
+  --pd-card-bg:       var(--tg-bg, #ffffff);              /* elevated cards      */
+  --pd-card-border:   #e8edf4;
+  --pd-text:          var(--tg-text, #0e1a2b);
+  --pd-text-2:        #3f4c63;                            /* secondary copy      */
+  --pd-hint:          var(--tg-hint, #7b879b);
+  --pd-border:        #e8edf4;
+  --pd-border-2:      #dbe2ec;
+  --pd-header-bg:     var(--tg-bg, #ffffff);
+  --pd-header-border: #ebeff5;
+
+  /* ---- accent: prefer Telegram button color, fall back to PairDesk blue ---- */
+  --pd-accent:        var(--tg-button, #2f6bf6);
+  --pd-accent-eff:    var(--pd-accent);
+  --pd-accent-text:   var(--tg-button-text, #ffffff);
+
+  /* ---- rate scale (PairDesk semantic — not from Telegram) ---- */
+  --pd-good:     #0c7a60;  --pd-good-bg: color-mix(in srgb, #0c7a60 10%, var(--pd-bg));
+  --pd-fair:     #5a6b86;  --pd-fair-bg: #eef2f7;
+  --pd-far:      #c2410c;  --pd-far-bg:  color-mix(in srgb, #c2410c 9%, var(--pd-bg));
+  --pd-star:     #f5a623;
+
+  /* ---- currency identity (glyph chips) ---- */
+  --g-eur:  #2f6bf6;  --g-rub:  #64748b;  --g-usdt: #0e9f6e;
+
+  /* ---- elevation ---- */
+  --pd-shadow:      0 1px 2px rgba(15,30,50,.04), 0 5px 18px -6px rgba(15,30,50,.09);
+  --pd-shadow-card: 0 1px 2px rgba(15,30,50,.05), 0 1px 0 rgba(15,30,50,.02);
+
+  /* ---- typography ---- */
+  --pd-ui:   -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --pd-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Roboto Mono', Menlo, monospace;
+  --pd-num-font: var(--pd-mono);     /* set to `inherit` for proportional numerals */
+  --pd-num-feat: normal;             /* or `tabular-nums` when proportional         */
+
+  /* type scale (px) */
+  --pd-fs-display: 30px;  /* detail amount            */
+  --pd-fs-h1:      23px;  /* screen title             */
+  --pd-fs-amount:  17px;  /* card amount              */
+  --pd-fs-body:    15px;  /* default                  */
+  --pd-fs-sub:     13px;  /* secondary                */
+  --pd-fs-meta:    12px;  /* timestamps, labels       */
+  --pd-fs-micro:   11px;  /* badges, pills            */
+
+  /* ---- spacing & shape ---- */
+  --pd-sp-1: 4px;  --pd-sp-2: 8px;  --pd-sp-3: 11px;  --pd-sp-4: 16px;  --pd-sp-5: 22px;
+  --pd-radius:    17px;   /* cards, sections     */
+  --pd-radius-sm: 12px;   /* fields, inset cards */
+  --pd-radius-xs: 9px;    /* buttons, segments   */
+  --pd-pill:      999px;
+
+  /* density — override these three to switch compact / balanced / comfy */
+  --pd-card-pad:  15px;
+  --pd-list-gap:  11px;
+  --pd-card-gap:  10px;
+}
+
+/* ---- Dark theme: Telegram dark base (#17212b) ---- */
+:root[data-theme="dark"] {
+  --pd-surface-2:     #243240;
+  --pd-card-bg:       #1e2b39;
+  --pd-card-border:   #2b3b4c;
+  --pd-text-2:        #c2cde0;
+  --pd-border:        #2a3a4a;
+  --pd-border-2:      #34475b;
+  --pd-header-border: #243240;
+
+  /* lift the accent for contrast on dark surfaces */
+  --pd-accent-eff:    color-mix(in srgb, var(--pd-accent) 76%, white);
+  --pd-accent-text:   #0b1622;
+
+  --pd-good:  #34c08c;  --pd-good-bg: color-mix(in srgb, #34c08c 15%, var(--pd-bg));
+  --pd-fair:  #9fb0c4;  --pd-fair-bg: #25323f;
+  --pd-far:   #f0764f;  --pd-far-bg:  color-mix(in srgb, #f0764f 15%, var(--pd-bg));
+
+  --g-eur:  #5e93ff;  --g-rub:  #94a6bd;  --g-usdt: #29c08a;
+
+  --pd-shadow:      0 1px 2px rgba(0,0,0,.25), 0 6px 18px -6px rgba(0,0,0,.4);
+  --pd-shadow-card: 0 1px 2px rgba(0,0,0,.22);
+}
+
+/* Density presets — apply on a wrapper, e.g. <div data-density="compact"> */
+[data-density="compact"]  { --pd-card-pad: 12px; --pd-list-gap: 8px;  --pd-card-gap: 7px;  }
+[data-density="balanced"] { --pd-card-pad: 15px; --pd-list-gap: 11px; --pd-card-gap: 10px; }
+[data-density="comfy"]    { --pd-card-pad: 18px; --pd-list-gap: 14px; --pd-card-gap: 13px; }
+
+/* Tabular figures for any money/rate text */
+.pd-num {
+  font-family: var(--pd-num-font);
+  font-variant-numeric: var(--pd-num-feat);
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
+}

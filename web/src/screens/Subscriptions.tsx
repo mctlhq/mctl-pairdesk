@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { Empty, fmtAmount } from '../components.js';
+import { AssetSelect, Empty, fmtAmount, Icon } from '../components.js';
 import { haptic } from '../tg.js';
 import { ASSETS, type Asset, type Subscription } from '../types.js';
 
@@ -14,7 +14,9 @@ export function Subscriptions() {
   const [busy, setBusy] = useState(false);
 
   function load() {
-    api.get<{ subscriptions: Subscription[] }>('/subscriptions').then((r) => setSubs(r.subscriptions)).finally(() => setLoading(false));
+    api.get<{ subscriptions: Subscription[] }>('/subscriptions')
+      .then((r) => setSubs(r.subscriptions))
+      .finally(() => setLoading(false));
   }
   useEffect(load, []);
 
@@ -22,17 +24,13 @@ export function Subscriptions() {
     setBusy(true);
     try {
       await api.post('/subscriptions', {
-        want_asset: want,
-        give_assets: give,
-        location_city: city.trim() || null,
-        max_rate: maxRate.trim() || null,
+        want_asset: want, give_assets: give,
+        location_city: city.trim() || null, max_rate: maxRate.trim() || null,
       });
       haptic('success');
       setGive([]); setCity(''); setMaxRate('');
       load();
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
   async function remove(id: number) {
@@ -41,56 +39,68 @@ export function Subscriptions() {
   }
 
   return (
-    <div>
-      <h1>Alerts</h1>
-      <p className="muted small">Get a Telegram message when a matching order is posted.</p>
+    <div className="pd-page">
+      <h1 className="pd-h1">Alerts</h1>
+      <p className="pd-sub">Get a Telegram message when a matching order is posted.</p>
 
-      <div className="card stack">
-        <div>
-          <label>Notify me about orders wanting</label>
-          <select value={want} onChange={(e) => setWant(e.target.value as Asset)}>
-            {ASSETS.map((a) => <option key={a}>{a}</option>)}
-          </select>
+      <div className="pd-form-section">
+        <span className="pd-label">Notify me about orders wanting</span>
+        <AssetSelect value={want} onChange={(a) => { setWant(a); setGive((g) => g.filter((x) => x !== a)); }} />
+
+        <span className="pd-label">Paid in any of</span>
+        <div className="pd-chips pd-chips-wrap">
+          {ASSETS.filter((a) => a !== want).map((a) => (
+            <button key={a} type="button"
+              className={`pd-chip${give.includes(a) ? ' is-on' : ''}`}
+              onClick={() => setGive((p) => p.includes(a) ? p.filter((x) => x !== a) : [...p, a])}>
+              {a}
+            </button>
+          ))}
         </div>
-        <div>
-          <label>Paid in any of</label>
-          <div className="row wrap">
-            {ASSETS.filter((a) => a !== want).map((a) => (
-              <button type="button" key={a} className={give.includes(a) ? 'pill on' : 'pill'} onClick={() => setGive((p) => (p.includes(a) ? p.filter((x) => x !== a) : [...p, a]))}>
-                {a}
-              </button>
-            ))}
-          </div>
+
+        <span className="pd-label">City <span className="pd-label-opt">· optional</span></span>
+        <div className="pd-field">
+          <Icon name="pin" size={16} cls="pd-field-ic" />
+          <input className="pd-input" placeholder="e.g. Bar" value={city} onChange={(e) => setCity(e.target.value)} />
         </div>
-        <div>
-          <label>City (optional)</label>
-          <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Bar" />
-        </div>
-        <div>
-          <label>Max rate (optional)</label>
-          <input value={maxRate} onChange={(e) => setMaxRate(e.target.value)} inputMode="decimal" />
-        </div>
-        <button disabled={busy} onClick={() => void create()}>Create alert</button>
+
+        <span className="pd-label">Max rate <span className="pd-label-opt">· optional</span></span>
+        <input className="pd-input" inputMode="decimal" value={maxRate} onChange={(e) => setMaxRate(e.target.value)} />
+
+        <button className="pd-btn-block" disabled={busy} onClick={() => void create()}>
+          <Icon name="bell" size={17} />Create alert
+        </button>
       </div>
 
-      <h2 style={{ marginTop: 20 }}>Your alerts</h2>
+      <h2 className="pd-h2">Your alerts</h2>
       {loading ? (
-        <p className="muted">Loading…</p>
+        <p className="pd-muted-row">Loading…</p>
       ) : subs.length === 0 ? (
         <Empty text="No alerts yet." />
       ) : (
-        subs.map((s) => (
-          <div className="card" key={s.id}>
-            <div className="row">
-              <span>wants <strong>{s.want_asset}</strong>{s.give_assets.length ? ` · pays ${s.give_assets.join('/')}` : ''}</span>
-              <span className="spacer" />
-              <button className="ghost" onClick={() => void remove(s.id)}>Delete</button>
+        <div className="pd-list">
+          {subs.map((s) => (
+            <div className="pd-alert-row" key={s.id}>
+              <span className="pd-alert-pair">
+                <span>{s.want_asset}</span>
+                <Icon name="arrowSwap" size={15} cls="pd-mut-ic" />
+                <span>{s.give_assets.join(' / ') || 'any'}</span>
+              </span>
+              <div style={{ flex: 1 }}>
+                <div className="pd-alert-meta">
+                  {s.location_city ? `${s.location_city} · ` : 'anywhere · '}
+                  {s.max_rate ? `≤ ${fmtAmount(s.max_rate)} · ` : ''}
+                  <span style={{ color: s.is_active ? 'var(--pd-good)' : 'var(--pd-hint)' }}>
+                    {s.is_active ? 'active' : 'paused'}
+                  </span>
+                </div>
+              </div>
+              <button className="pd-iconbtn" onClick={() => void remove(s.id)}>
+                <Icon name="close" size={16} />
+              </button>
             </div>
-            <div className="muted small">
-              {s.location_city ? `${s.location_city} · ` : ''}{s.max_rate ? `max rate ${fmtAmount(s.max_rate)} · ` : ''}{s.is_active ? 'active' : 'paused'}
-            </div>
-          </div>
-        ))
+          ))}
+        </div>
       )}
     </div>
   );

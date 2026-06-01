@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
-import { Empty, OrderCard } from '../components.js';
+import { Empty, Icon, OrderCard } from '../components.js';
 import { ASSETS, type Asset, type Order } from '../types.js';
 
 export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
@@ -11,8 +11,6 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  // Monotonically-increasing fetch ID. Stored in a ref so it persists across
-  // renders; compared in the .then() callback to discard stale responses.
   const latestSeq = useRef(0);
 
   function fetchOrders(before?: number, append = false) {
@@ -25,7 +23,6 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
     return api
       .get<{ orders: Order[]; next_cursor: number | null }>(`/orders?${qs.toString()}`)
       .then((r) => {
-        // Drop responses from earlier fetches that resolved after a newer one.
         if (seq !== latestSeq.current) return;
         setOrders((prev) => append ? [...prev, ...r.orders] : r.orders);
         setNextCursor(r.next_cursor);
@@ -39,7 +36,7 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
       fetchOrders().finally(() => setLoading(false));
     }, 250);
     return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [want, give, city]);
 
   function loadMore() {
@@ -49,42 +46,79 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
   }
 
   return (
-    <div>
-      <h1>Order book</h1>
-
-      <label>Wants (receives)</label>
-      <div className="row wrap">
-        <Chip on={want === ''} onClick={() => setWant('')}>All</Chip>
-        {ASSETS.map((a) => (
-          <Chip key={a} on={want === a} onClick={() => setWant(want === a ? '' : a)}>
-            {a}
-          </Chip>
-        ))}
+    <div className="pd-page">
+      <div className="pd-page-head">
+        <h1 className="pd-h1">Order book</h1>
+        {!loading && (
+          <span className="pd-result-count">
+            <span className="pd-num">{orders.length}</span> open
+          </span>
+        )}
       </div>
 
-      <label>Gives (pays in)</label>
-      <div className="row wrap">
-        <Chip on={give === ''} onClick={() => setGive('')}>Any</Chip>
-        {ASSETS.map((a) => (
-          <Chip key={a} on={give === a} onClick={() => setGive(give === a ? '' : a)}>
-            {a}
-          </Chip>
-        ))}
+      <div className="pd-filters">
+        <div className="pd-filter-block">
+          <span className="pd-filter-label">Wants</span>
+          <div className="pd-chips">
+            <button
+              className={`pd-chip${want === '' ? ' is-on' : ''}`}
+              onClick={() => setWant('')}
+            >All</button>
+            {ASSETS.map((a) => (
+              <button
+                key={a}
+                className={`pd-chip pd-chip-filter${want === a ? ' is-on' : ''}`}
+                onClick={() => setWant(want === a ? '' : a)}
+              >{a}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="pd-filter-block">
+          <span className="pd-filter-label">Pays in</span>
+          <div className="pd-chips">
+            <button
+              className={`pd-chip${give === '' ? ' is-on' : ''}`}
+              onClick={() => setGive('')}
+            >Any</button>
+            {ASSETS.map((a) => (
+              <button
+                key={a}
+                className={`pd-chip pd-chip-filter${give === a ? ' is-on' : ''}`}
+                onClick={() => setGive(give === a ? '' : a)}
+              >{a}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="pd-field pd-field-search">
+          <Icon name="pin" size={16} cls="pd-field-ic" />
+          <input
+            className="pd-input"
+            placeholder="City — e.g. Bar, Tbilisi"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+          />
+          {city && (
+            <button className="pd-field-clear" onClick={() => setCity('')}>
+              <Icon name="close" size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
-      <label>City</label>
-      <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Bar" />
-
-      <div style={{ marginTop: 16 }}>
+      <div className="pd-list">
         {loading ? (
-          <p className="muted">Loading…</p>
+          <p className="pd-muted-row">Loading…</p>
         ) : orders.length === 0 ? (
           <Empty text="No matching orders. Try widening the filters or create one." />
         ) : (
           <>
-            {orders.map((o) => <OrderCard key={o.id} order={o} onOpen={onOpen} />)}
+            {orders.map((o) => (
+              <OrderCard key={o.id} order={o} onOpen={onOpen} />
+            ))}
             {nextCursor != null && (
-              <button className="ghost" style={{ width: '100%', marginTop: 8 }} onClick={loadMore} disabled={loadingMore}>
+              <button className="pd-loadmore" onClick={loadMore} disabled={loadingMore}>
                 {loadingMore ? 'Loading…' : 'Load more'}
               </button>
             )}
@@ -92,13 +126,5 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
         )}
       </div>
     </div>
-  );
-}
-
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" className={on ? 'pill on' : 'pill'} onClick={onClick}>
-      {children}
-    </button>
   );
 }
