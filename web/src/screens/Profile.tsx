@@ -4,15 +4,16 @@ import { Icon } from '../components.js';
 import { hasMainButton, hapticError, hapticSelection, hapticSuccess, setMainButton, showBackButton } from '../tg.js';
 import { type Me, PAYMENT_METHODS } from '../types.js';
 import { Admin } from './Admin.js';
+import { Deals } from './Deals.js';
 import { Subscriptions } from './Subscriptions.js';
 
 const METHOD_LABELS: Record<string, string> = {
   bank_transfer: 'Bank', cash: 'Cash', TRC20: 'TRC20', ERC20: 'ERC20', TON: 'TON', other: 'Other',
 };
 
-type ProfileView = 'main' | 'alerts' | 'admin';
+type ProfileView = 'main' | 'alerts' | 'admin' | 'deals';
 
-export function Profile({ me, canAdmin, onSaved }: { me: Me; canAdmin: boolean; onSaved: () => void }) {
+export function Profile({ me, canAdmin, onSaved, onOpenOrder }: { me: Me; canAdmin: boolean; onSaved: () => void; onOpenOrder: (id: number) => void }) {
   const p = me.profile;
   const [view, setView] = useState<ProfileView>('main');
   const [displayName, setDisplayName] = useState(p.display_name ?? '');
@@ -58,7 +59,7 @@ export function Profile({ me, canAdmin, onSaved }: { me: Me; canAdmin: boolean; 
     });
   }, [busy, view]);
 
-  if (view === 'alerts' || (view === 'admin' && canAdmin)) {
+  if (view === 'alerts' || (view === 'admin' && canAdmin) || view === 'deals') {
     return (
       <>
         {/* In Telegram the native BackButton (registered above) handles return;
@@ -70,7 +71,9 @@ export function Profile({ me, canAdmin, onSaved }: { me: Me; canAdmin: boolean; 
             </button>
           </div>
         )}
-        {view === 'alerts' ? <Subscriptions /> : <Admin />}
+        {view === 'alerts' && <Subscriptions />}
+        {view === 'admin'  && <Admin />}
+        {view === 'deals'  && <Deals onOpen={onOpenOrder} me={me} />}
       </>
     );
   }
@@ -123,6 +126,14 @@ export function Profile({ me, canAdmin, onSaved }: { me: Me; canAdmin: boolean; 
           <span>
             <span className="pd-profile-link-title">Alerts</span>
             <span className="pd-profile-link-sub">Matching order notifications</span>
+          </span>
+          <Icon name="chevron" size={16} cls="pd-chev" />
+        </button>
+        <button type="button" className="pd-profile-link" onClick={() => { hapticSelection(); setView('deals'); }}>
+          <span className="pd-profile-link-ic"><Icon name="arrowSwap" size={17} /></span>
+          <span>
+            <span className="pd-profile-link-title">My Deals</span>
+            <span className="pd-profile-link-sub">Your active and completed exchanges</span>
           </span>
           <Icon name="chevron" size={16} cls="pd-chev" />
         </button>

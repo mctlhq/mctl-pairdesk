@@ -4,7 +4,7 @@ import { Badge, Empty, fmtAmount, Icon } from '../components.js';
 import { haptic } from '../tg.js';
 
 interface PendingUser { id: number; telegram_id: number; username: string | null; first_name: string | null; created_at: string }
-interface AdminOrder { id: number; created_by_user_id: number; want_asset: string; want_amount: string; status: string; location_city: string | null }
+interface AdminOrder { id: number; created_by_user_id: number; creator_username: string | null; creator_name: string | null; want_asset: string; want_amount: string; status: string; location_city: string | null }
 interface AdminDeal {
   id: number; status: string; created_at: string; updated_at: string;
   order_id: number; want_asset: string; want_amount: string; order_status: string; location_city: string | null;
@@ -101,7 +101,7 @@ function Orders() {
           </div>
           <div className="pd-row" style={{ marginTop: 8 }}>
             <span className="pd-muted-row" style={{ padding: 0, fontSize: 12 }}>
-              #{o.id} · by #{o.created_by_user_id}{o.location_city ? ` · ${o.location_city}` : ''}
+              #{o.id} · by {o.creator_username ? `@${o.creator_username}` : (o.creator_name ?? `#${o.created_by_user_id}`)}{o.location_city ? ` · ${o.location_city}` : ''}
             </span>
             <span className="pd-spacer" />
             <button className="pd-iconbtn" title="Flag"

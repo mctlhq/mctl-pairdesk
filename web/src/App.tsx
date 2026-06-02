@@ -8,10 +8,9 @@ import { Pending } from './screens/Pending.js';
 import { OrderBook } from './screens/OrderBook.js';
 import { OrderDetail } from './screens/OrderDetail.js';
 import { CreateOrder } from './screens/CreateOrder.js';
-import { Deals } from './screens/Deals.js';
 import { Profile } from './screens/Profile.js';
 
-export type Tab = 'book' | 'create' | 'deals' | 'profile';
+export type Tab = 'book' | 'create' | 'profile';
 
 function rank(role: UserRole): number {
   return { user: 0, trusted_user: 1, moderator: 2, admin: 3 }[role];
@@ -72,37 +71,29 @@ export function App() {
     return <OrderDetail orderId={detailOrderId} me={me} onBack={() => setDetailOrderId(null)} />;
   }
 
-  const tabs: { id: Tab; label: string; icon: string; show: boolean }[] = [
-    { id: 'book',    label: 'Book',    icon: 'book',    show: true      },
-    { id: 'create',  label: 'Create',  icon: 'create',  show: true      },
-    { id: 'deals',   label: 'Deals',   icon: 'arrowSwap', show: true    },
-    { id: 'profile', label: 'Profile', icon: 'user',    show: true      },
-  ];
+  function nav(id: Tab) { if (id !== tab) hapticSelection(); setTab(id); }
 
   return (
     <div className="pd-app">
       <main className="pd-content">
         {tab === 'book'    && <OrderBook onOpen={setDetailOrderId} />}
         {tab === 'create'  && <CreateOrder onCreated={(id) => setDetailOrderId(id)} />}
-        {tab === 'deals'   && <Deals onOpen={setDetailOrderId} me={me} />}
-        {tab === 'profile' && <Profile me={me} canAdmin={canAdmin} onSaved={() => void loadMe()} />}
+        {tab === 'profile' && <Profile me={me} canAdmin={canAdmin} onSaved={() => void loadMe()} onOpenOrder={setDetailOrderId} />}
       </main>
       <nav className="pd-tabbar">
-        {tabs.filter((t) => t.show).map((t) => (
-          <button
-            key={t.id}
-            className={t.id === tab ? 'pd-tab is-active' : 'pd-tab'}
-            onClick={() => {
-              if (t.id !== tab) hapticSelection();
-              setTab(t.id);
-            }}
-            aria-label={t.label}
-            aria-current={t.id === tab ? 'page' : undefined}
-          >
-            <Icon name={t.icon} size={20} stroke={1.6} />
-            <span className="pd-tab-label">{t.label}</span>
-          </button>
-        ))}
+        <button className={`pd-tab${tab === 'book' ? ' is-active' : ''}`} onClick={() => nav('book')} aria-label="Book" aria-current={tab === 'book' ? 'page' : undefined}>
+          <Icon name="book" size={20} stroke={1.6} />
+          <span className="pd-tab-label">Book</span>
+        </button>
+        <button className={`pd-tab pd-tab-fab${tab === 'create' ? ' is-active' : ''}`} onClick={() => nav('create')} aria-label="Create" aria-current={tab === 'create' ? 'page' : undefined}>
+          <span className="pd-fab-circle">
+            <Icon name="create" size={22} stroke={1.8} />
+          </span>
+        </button>
+        <button className={`pd-tab${tab === 'profile' ? ' is-active' : ''}`} onClick={() => nav('profile')} aria-label="Profile" aria-current={tab === 'profile' ? 'page' : undefined}>
+          <Icon name="user" size={20} stroke={1.6} />
+          <span className="pd-tab-label">Profile</span>
+        </button>
       </nav>
     </div>
   );

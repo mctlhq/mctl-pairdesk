@@ -230,7 +230,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
               value={comment} onChange={(e) => setComment(e.target.value)} />
             <div className="pd-preview">
               <span className="pd-preview-tag">Preview</span>
-              <OrderCard order={previewOrder} variant="rate" />
+              <OrderCard order={previewOrder} variant="outcome" />
             </div>
           </div>
           {err && <p style={{ color: 'var(--pd-far)', fontSize: 13, margin: '0 0 8px' }}>{err}</p>}
