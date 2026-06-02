@@ -296,14 +296,13 @@ export function OrderCard({
           <div className="pd-order-line">
             <span className="pd-order-label">Rate</span>
             <span className="pd-order-value pd-num">
-              {primary?.max_rate ? `${fmtAmount(primary.max_rate)} ${primary.asset}/${order.want_asset}` : 'Not set'}
-            </span>
-          </div>
-          <div className="pd-order-line">
-            <span className="pd-order-label">Market ref.</span>
-            <span className="pd-order-value">
-              {primary ? <RateChip delta={primary.delta_percent} style="chip" /> : <span className="pd-rate-none">no rate</span>}
-              {showBest && <span className="pd-order-alt">best {bestNum! > 0 ? '+' : ''}{bestNum!.toFixed(1)}%</span>}
+              {primary?.max_rate ? (
+                <>
+                  {`${fmtAmount(primary.max_rate)} ${primary.asset}/${order.want_asset}`}
+                  <RateChip delta={primary.delta_percent} style="chip" />
+                  {showBest && <span className="pd-order-alt">best {bestNum! > 0 ? '+' : ''}{bestNum!.toFixed(1)}%</span>}
+                </>
+              ) : 'Not set'}
             </span>
           </div>
         </div>

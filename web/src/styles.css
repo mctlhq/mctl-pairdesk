@@ -286,8 +286,8 @@ button.pd-card:active { opacity: .8; transform: scale(.995); }
 /* Outcome card — amount-first order book variant */
 .pd-card-outcome .pd-order-summary {
   display: grid;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 .pd-order-line {
   display: grid;
