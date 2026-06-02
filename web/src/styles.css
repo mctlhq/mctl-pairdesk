@@ -550,6 +550,21 @@ input.pd-input:focus, select.pd-input:focus, textarea.pd-input:focus {
 }
 textarea.pd-input { resize: vertical; min-height: 64px; }
 
+/* An input wrapped in a bordered container (.pd-field / .pd-amount-field) must
+   NOT paint its own box — the wrapper is the single bordered surface. The
+   standalone `input.pd-input` rule above (specificity 0,0,1,1) outweighs the bare
+   `.pd-input-amount` / `.pd-field .pd-input` classes, so without this reset the
+   wrapped input draws a second border+background inside the wrapper: a nested box
+   with a double focus ring. These selectors (0,0,2,1) win it back. */
+.pd-field input.pd-input,
+.pd-amount-field input.pd-input {
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+.pd-field input.pd-input { padding: 11px 0; }
+.pd-amount-field input.pd-input { padding: 12px 8px; }
+
 .pd-label {
   display: block;
   font-size: var(--pd-fs-meta);
