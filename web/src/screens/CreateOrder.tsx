@@ -22,9 +22,14 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   const optSeq = useRef(1);  // next stable give-option id
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  // tracks which give-option ids have a rate outside ±10% of the market reference
+  // tracks which give-option ids have a rate outside ±10% of the market reference.
+  // `rateViolations` is debounced (drives the button label / disabled state, so it
+  // never flashes mid-keystroke); `liveRateViolations` is real-time and only gates
+  // the Continue tap, so a fast tap can't beat the 600ms debounce past the gate.
   const [rateViolations, setRateViolations] = useState<Record<number, boolean>>({});
+  const [liveRateViolations, setLiveRateViolations] = useState<Record<number, boolean>>({});
   const hasRateViolation = Object.values(rateViolations).some(Boolean);
+  const hasLiveRateViolation = Object.values(liveRateViolations).some(Boolean);
 
   const availFor = (idx: number): Asset[] =>
     ASSETS.filter((a) => a !== wantAsset && !opts.some((o, i) => i !== idx && o.asset === a));
@@ -76,7 +81,9 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
       return;
     }
     if (step === 2) {
-      if (hasRateViolation) { hapticError(); return; }
+      // Gate on the real-time flag too: the button may still look enabled during
+      // the 600ms debounce, but a live violation must block the transition.
+      if (hasRateViolation || hasLiveRateViolation) { hapticError(); return; }
       hapticSelection();
       setStep(3);
       return;
@@ -185,6 +192,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                       setOpts((p) => p.filter((_, idx) => idx !== i));
                       // Drop only the removed option's entry; stable ids keep the rest valid.
                       setRateViolations((p) => { const { [o.id]: _drop, ...rest } = p; return rest; });
+                      setLiveRateViolations((p) => { const { [o.id]: _drop, ...rest } = p; return rest; });
                     }}>Remove</button>}
                   </div>
                   <span className="pd-label">Max rate <span className="pd-label-opt">· {o.asset}/{wantAsset} · optional</span></span>
@@ -193,7 +201,10 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                     value={o.max_rate} onChange={(e) => updateOpt(i, { max_rate: e.target.value })}
                     onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
                   <RatePreview base={wantAsset} quote={o.asset} userRate={o.max_rate} wantAmount={wantAmount}
-                    onViolation={(v) => setRateViolations((p) => ({ ...p, [o.id]: v }))} />
+                    onViolation={(settled, live) => {
+                      setRateViolations((p) => ({ ...p, [o.id]: settled }));
+                      setLiveRateViolations((p) => ({ ...p, [o.id]: live }));
+                    }} />
                   <span className="pd-label">Payment methods</span>
                   <div className="pd-chips pd-chips-wrap" style={{ marginTop: 4 }}>
                     {PAYMENT_METHODS.map((m) => (
@@ -253,8 +264,20 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
 
 const MAX_DEVIATION_PCT = 10;
 
+// True when a typed rate sits outside ±MAX_DEVIATION_PCT of the reference.
+// Shared by the debounced (settled) and real-time (live) violation reports.
+function isRateViolation(rate: string, reference: number): boolean {
+  const r = Number.parseFloat(rate);
+  if (!(Number.isFinite(r) && r > 0)) return false;
+  return Math.abs(((r - reference) / reference) * 100) > MAX_DEVIATION_PCT;
+}
+
 function RatePreview({ base, quote, userRate, wantAmount, onViolation }: {
-  base: Asset; quote: Asset; userRate: string; wantAmount?: string; onViolation?: (violated: boolean) => void;
+  base: Asset; quote: Asset; userRate: string; wantAmount?: string;
+  // (settledViolated, liveViolated): the settled flag drives the button/message
+  // (debounced, no flash); the live flag lets the parent block the Continue tap
+  // during the 600ms debounce window without re-introducing per-keystroke churn.
+  onViolation?: (settledViolated: boolean, liveViolated: boolean) => void;
 }) {
   const [ref, setRef] = useState<number | null>(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -275,20 +298,20 @@ function RatePreview({ base, quote, userRate, wantAmount, onViolation }: {
     // Clear any prior violation up front: the old flag belonged to the previous
     // asset/reference. Without this it lingers (Continue stays disabled) for the
     // whole fetch window until the new reference arrives and re-validates.
-    onViolation?.(false);
+    onViolation?.(false, false);
     api.get<{ rate: number }>(`/rates/reference?base=${base}&quote=${quote}`)
       .then((r) => !cancel && setRef(r.rate))
-      .catch(() => { if (!cancel) { setUnavailable(true); onViolation?.(false); } });
+      .catch(() => { if (!cancel) { setUnavailable(true); onViolation?.(false, false); } });
     return () => { cancel = true; };
   }, [base, quote]);
 
   useEffect(() => {
     if (ref == null || unavailable) return;
-    const ur = Number.parseFloat(settledRate);
-    const has = Number.isFinite(ur) && ur > 0;
-    const delta = has ? ((ur - ref) / ref) * 100 : null;
-    onViolation?.(delta != null && Math.abs(delta) > MAX_DEVIATION_PCT);
-  }, [ref, settledRate, unavailable]);
+    // settled (debounced) drives the visible message + disabled button; live
+    // (real-time) is what the parent checks at the Continue tap so a fast tap
+    // during the debounce window can't slip past the deviation gate.
+    onViolation?.(isRateViolation(settledRate, ref), isRateViolation(userRate, ref));
+  }, [ref, settledRate, userRate, unavailable]);
 
   if (unavailable) return <p className="pd-rate-hint">Reference rate unavailable — order can still be published.</p>;
   if (ref == null) return <p className="pd-rate-hint">Loading reference…</p>;
