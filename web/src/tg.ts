@@ -154,19 +154,18 @@ export function syncTelegramEnvironment(): () => void {
   };
 }
 
-// Track the on-screen keyboard via `window.visualViewport` and publish its
-// height as `--pd-keyboard-height` (px, 0 when closed) plus a `data-keyboard-open`
-// flag on <html>, which the CSS uses to pad the scroll root and slide the fixed
-// tabbar out of the way. We must cover BOTH viewport modes:
-//   - default TG Android: the layout viewport (`innerHeight`) does NOT shrink,
-//     only the visual viewport does, leaving an overlap band below it.
-//   - `interactive-widget=resizes-content` honoured (Chromium 108+): the layout
-//     viewport shrinks TOGETHER with the visual viewport, so the overlap band is
-//     ~0 — detect via the drop from a stored "no keyboard" baseline instead.
-// Taking the max of both signals keeps detection (and the tabbar slide-out)
-// working regardless of which mode the client is in. A >120px threshold rejects
-// small visual-viewport jitter that isn't a keyboard. Returns a cleanup that
-// detaches listeners and clears the styling.
+// Track the on-screen keyboard via `window.visualViewport`. Telegram fires no
+// keyboard event on Android and does NOT shrink the layout viewport, but the
+// WebView's visual viewport *does* shrink — so the gap between `innerHeight`
+// and the visual viewport (minus any pinch-zoom pan offset) is the keyboard
+// height. We publish that as `--pd-keyboard-height` (px, 0 when closed) plus a
+// `data-keyboard-open` flag on <html>, which the CSS uses to pad the scroll
+// root and slide the fixed tabbar out of the way. We deliberately do NOT use
+// `interactive-widget=resizes-content` (which would shrink the layout viewport
+// and defeat this overlap signal); driving the keyboard state in JS lets us
+// also slide our fixed tabbar, which the meta alone cannot do. A >120px
+// threshold rejects small visual-viewport jitter that isn't a keyboard.
+// Returns a cleanup that detaches listeners and clears the styling.
 export function setupKeyboardTracking(): () => void {
   const vv = window.visualViewport;
   const root = document.documentElement;
@@ -177,17 +176,10 @@ export function setupKeyboardTracking(): () => void {
     root.setAttribute('data-no-visualviewport', '');
     return () => root.removeAttribute('data-no-visualviewport');
   }
-  // Largest viewport height seen while the keyboard is closed. Re-baselined on
-  // every closed frame so orientation / chrome changes don't leave it stale.
-  let baseline = Math.max(window.innerHeight, vv.height);
   const update = () => {
-    const layout = window.innerHeight;
-    const visual = vv.height;
-    const overlap = layout - visual - vv.offsetTop; // default-mode signal
-    const shrink = baseline - Math.max(layout, visual); // resizes-content signal
-    const keyboard = Math.max(0, Math.round(Math.max(overlap, shrink)));
+    const overlap = window.innerHeight - vv.height - vv.offsetTop;
+    const keyboard = Math.max(0, Math.round(overlap));
     const open = keyboard > 120;
-    if (!open) baseline = Math.max(baseline, layout, visual);
     root.style.setProperty('--pd-keyboard-height', `${open ? keyboard : 0}px`);
     if (open) root.setAttribute('data-keyboard-open', '');
     else root.removeAttribute('data-keyboard-open');
