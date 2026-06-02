@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api.js';
 import { AssetSelect, fmtAmount, Icon, OrderCard, PD_GLYPH, PD_METHOD_LABEL, RateChip, Stepper } from '../components.js';
-import { hasMainButton, hapticError, hapticSelection, hapticSuccess, setMainButton, showBackButton } from '../tg.js';
+import { hasMainButton, hapticError, hapticSelection, hapticSuccess, scrollFieldIntoView, setMainButton, showBackButton } from '../tg.js';
 import { ASSETS, type Asset, PAYMENT_METHODS } from '../types.js';
 import type { Order } from '../types.js';
 
@@ -140,17 +140,20 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
               ));
             }} />
             <span className="pd-label">Amount</span>
-            <div className="pd-amount-field">
+            <label className="pd-amount-field">
               <span className="pd-amount-glyph">{PD_GLYPH[wantAsset]}</span>
               <input className="pd-input pd-input-amount pd-num" inputMode="decimal" placeholder="1000"
-                value={wantAmount} onChange={(e) => setWantAmount(e.target.value)} />
+                value={wantAmount} onChange={(e) => setWantAmount(e.target.value)}
+                onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
               <span className="pd-amount-code">{wantAsset}</span>
-            </div>
+            </label>
             <span className="pd-label">City <span className="pd-label-opt">· optional</span></span>
-            <div className="pd-field">
+            <label className="pd-field">
               <Icon name="pin" size={16} cls="pd-field-ic" />
-              <input className="pd-input" placeholder="e.g. Bar" value={city} onChange={(e) => setCity(e.target.value)} />
-            </div>
+              <input className="pd-input" inputMode="text" placeholder="e.g. Bar" value={city}
+                onChange={(e) => setCity(e.target.value)}
+                onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
+            </label>
           </div>
           {!hasMainButton() && <button className="pd-btn-block" disabled={!amountValid} onClick={primaryAction}>Continue</button>}
         </div>
@@ -187,7 +190,8 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                   <span className="pd-label">Max rate <span className="pd-label-opt">· {o.asset}/{wantAsset} · optional</span></span>
                   <input className="pd-input pd-num" inputMode="decimal"
                     placeholder="e.g. 99"
-                    value={o.max_rate} onChange={(e) => updateOpt(i, { max_rate: e.target.value })} />
+                    value={o.max_rate} onChange={(e) => updateOpt(i, { max_rate: e.target.value })}
+                    onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
                   <RatePreview base={wantAsset} quote={o.asset} userRate={o.max_rate} wantAmount={wantAmount}
                     onViolation={(v) => setRateViolations((p) => ({ ...p, [o.id]: v }))} />
                   <span className="pd-label">Payment methods</span>
@@ -226,8 +230,9 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
               <span className="pd-form-title">Note & preview</span>
             </div>
             <p className="pd-form-sub">Anything that helps a counterparty — timing, area, preferences.</p>
-            <textarea className="pd-input" placeholder="e.g. can meet near the marina this evening"
-              value={comment} onChange={(e) => setComment(e.target.value)} />
+            <textarea className="pd-input" inputMode="text" placeholder="e.g. can meet near the marina this evening"
+              value={comment} onChange={(e) => setComment(e.target.value)}
+              onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
             <div className="pd-preview">
               <span className="pd-preview-tag">Preview</span>
               <OrderCard order={previewOrder} variant="outcome" />
@@ -253,6 +258,16 @@ function RatePreview({ base, quote, userRate, wantAmount, onViolation }: {
 }) {
   const [ref, setRef] = useState<number | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  // Debounced copy of userRate. The violation check (red warning + the disabled
+  // Continue button) runs off this, so it only fires once the user has paused —
+  // otherwise the alarming "rate deviates" message flashes on every keystroke
+  // while the number is still being typed.
+  const [settledRate, setSettledRate] = useState(userRate);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSettledRate(userRate), 600);
+    return () => clearTimeout(t);
+  }, [userRate]);
 
   useEffect(() => {
     let cancel = false;
@@ -269,11 +284,11 @@ function RatePreview({ base, quote, userRate, wantAmount, onViolation }: {
 
   useEffect(() => {
     if (ref == null || unavailable) return;
-    const ur = Number.parseFloat(userRate);
+    const ur = Number.parseFloat(settledRate);
     const has = Number.isFinite(ur) && ur > 0;
     const delta = has ? ((ur - ref) / ref) * 100 : null;
     onViolation?.(delta != null && Math.abs(delta) > MAX_DEVIATION_PCT);
-  }, [ref, userRate, unavailable]);
+  }, [ref, settledRate, unavailable]);
 
   if (unavailable) return <p className="pd-rate-hint">Reference rate unavailable — order can still be published.</p>;
   if (ref == null) return <p className="pd-rate-hint">Loading reference…</p>;
@@ -281,7 +296,11 @@ function RatePreview({ base, quote, userRate, wantAmount, onViolation }: {
   const ur = Number.parseFloat(userRate);
   const has = Number.isFinite(ur) && ur > 0;
   const delta = has ? ((ur - ref) / ref) * 100 : null;
-  const violated = delta != null && Math.abs(delta) > MAX_DEVIATION_PCT;
+  // The warning text mirrors the debounced flag (settledRate), so the message and
+  // the disabled button appear together — not while the user is mid-keystroke.
+  const settled = Number.parseFloat(settledRate);
+  const settledDelta = Number.isFinite(settled) && settled > 0 ? ((settled - ref) / ref) * 100 : null;
+  const violated = settledDelta != null && Math.abs(settledDelta) > MAX_DEVIATION_PCT;
 
   const qty = Number.parseFloat(wantAmount ?? '');
   const total = has && Number.isFinite(qty) && qty > 0 ? qty * ur : null;
@@ -299,7 +318,7 @@ function RatePreview({ base, quote, userRate, wantAmount, onViolation }: {
       )}
       {violated && (
         <p style={{ margin: 0, fontSize: 12, color: 'var(--pd-far)', fontWeight: 600 }}>
-          Rate deviates {delta! > 0 ? '+' : ''}{delta!.toFixed(1)}% from market reference — maximum ±{MAX_DEVIATION_PCT}%. Adjust the rate to continue.
+          Rate deviates {settledDelta! > 0 ? '+' : ''}{settledDelta!.toFixed(1)}% from market reference — maximum ±{MAX_DEVIATION_PCT}%. Adjust the rate to continue.
         </p>
       )}
     </div>

@@ -8,8 +8,8 @@ interface AdminOrder { id: number; created_by_user_id: number; creator_username:
 interface AdminDeal {
   id: number; status: string; created_at: string; updated_at: string;
   order_id: number; want_asset: string; want_amount: string; order_status: string; location_city: string | null;
-  creator_username: string | null; creator_name: string;
-  responder_username: string | null; responder_name: string;
+  creator_user_id: number; creator_username: string | null; creator_name: string | null;
+  responder_user_id: number; responder_username: string | null; responder_name: string | null;
 }
 
 type View = 'users' | 'orders' | 'deals';
@@ -131,8 +131,8 @@ function Deals() {
   return (
     <div className="pd-list">
       {deals.map((d) => {
-        const creator   = d.creator_username   ? `@${d.creator_username}`   : d.creator_name;
-        const responder = d.responder_username ? `@${d.responder_username}` : d.responder_name;
+        const creator   = d.creator_username   ? `@${d.creator_username}`   : (d.creator_name   ?? `#${d.creator_user_id}`);
+        const responder = d.responder_username ? `@${d.responder_username}` : (d.responder_name ?? `#${d.responder_user_id}`);
         return (
           <div className="pd-card" key={d.id}>
             <div className="pd-row" style={{ marginBottom: 8 }}>

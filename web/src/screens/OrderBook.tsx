@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { Empty, Icon, OrderCard } from '../components.js';
-import { hapticSelection } from '../tg.js';
+import { hapticSelection, scrollFieldIntoView } from '../tg.js';
 import { ASSETS, type Asset, type Order } from '../types.js';
 
 export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
@@ -9,7 +9,6 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
   const [give, setGive] = useState<Asset | ''>('');
   const [city, setCity] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
-  const [members, setMembers] = useState<number | null>(null);
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -51,12 +50,6 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [want, give, city]);
 
-  useEffect(() => {
-    api.get<{ members: number }>('/community/stats')
-      .then((r) => setMembers(r.members))
-      .catch(() => {});
-  }, []);
-
   function loadMore() {
     if (nextCursor == null) return;
     setLoadingMore(true);
@@ -69,11 +62,6 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
         <h1 className="pd-h1">Order book</h1>
         <span className="pd-result-count">
           {!loading && <><span className="pd-num">{orders.length}</span> open</>}
-          {members != null && (
-            <><span className="pd-dot-sep">·</span>
-            <Icon name="user" size={12} cls="pd-mut-ic" />
-            <span className="pd-num">{members}</span></>
-          )}
         </span>
       </div>
 
@@ -112,20 +100,22 @@ export function OrderBook({ onOpen }: { onOpen: (id: number) => void }) {
           </div>
         </div>
 
-        <div className="pd-field pd-field-search">
+        <label className="pd-field pd-field-search">
           <Icon name="pin" size={16} cls="pd-field-ic" />
           <input
             className="pd-input"
+            inputMode="text"
             placeholder="City — e.g. Bar, Tbilisi"
             value={city}
             onChange={(e) => setCity(e.target.value)}
+            onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
           />
           {city && (
             <button className="pd-field-clear" onClick={() => setCity('')} aria-label="Clear city filter">
               <Icon name="close" size={14} />
             </button>
           )}
-        </div>
+        </label>
       </div>
 
       <div className="pd-list">

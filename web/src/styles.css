@@ -29,7 +29,7 @@ body {
   padding:
     calc(16px + var(--tg-content-safe-area-inset-top, 0px))
     calc(16px + var(--tg-content-safe-area-inset-right, 0px))
-    calc(var(--pd-sp-5) + 62px + max(env(safe-area-inset-bottom), var(--tg-content-safe-area-inset-bottom, 0px)))
+    calc(var(--pd-sp-5) + 120px + max(env(safe-area-inset-bottom), var(--tg-content-safe-area-inset-bottom, 0px)))
     calc(16px + var(--tg-content-safe-area-inset-left, 0px));
   max-width: 640px;
   margin: 0 auto;
@@ -498,9 +498,14 @@ button.pd-card:active { opacity: .8; transform: scale(.995); }
   border-radius: var(--pd-radius-sm);
   border: 1.5px solid transparent;
   padding: 0 12px;
+  cursor: text;
+  /* keep the field clear of the on-screen keyboard when scrolled into view */
+  scroll-margin-bottom: 280px;
   transition: border-color .15s;
 }
 .pd-field:focus-within { border-color: var(--pd-accent-eff); }
+/* stretch the input across the full field height so the whole field is the tap target */
+.pd-field .pd-input { align-self: stretch; }
 .pd-field-ic { flex: none; color: var(--pd-hint); }
 .pd-field-clear {
   flex: none;
@@ -535,6 +540,8 @@ input.pd-input, select.pd-input, textarea.pd-input {
   border-radius: var(--pd-radius-sm);
   padding: 11px 13px;
   width: 100%;
+  /* keep the field clear of the on-screen keyboard when scrolled into view */
+  scroll-margin-bottom: 280px;
   transition: border-color .15s;
 }
 input.pd-input:focus, select.pd-input:focus, textarea.pd-input:focus {
@@ -936,6 +943,9 @@ textarea.pd-input { resize: vertical; min-height: 64px; }
   border-radius: var(--pd-radius-sm);
   border: 1.5px solid var(--pd-border);
   padding: 0 14px;
+  cursor: text;
+  /* keep the field clear of the on-screen keyboard when scrolled into view */
+  scroll-margin-bottom: 280px;
   transition: border-color .15s;
 }
 .pd-amount-field:focus-within { border-color: var(--pd-accent-eff); }

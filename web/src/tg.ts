@@ -232,3 +232,12 @@ export function hapticError(): void {
 export function haptic(type: 'success' | 'warning' | 'error' = 'success'): void {
   wa?.HapticFeedback?.notificationOccurred(type);
 }
+
+// onFocus handler: scroll a focused field into the centre of the viewport so the
+// on-screen keyboard never hides it. Telegram/Android don't shrink the viewport
+// on focus, so without this the field can sit underneath the keyboard. Deferred a
+// frame so the keyboard/layout has begun to settle before we measure.
+export function scrollFieldIntoView(el: HTMLElement | null): void {
+  if (!el) return;
+  requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+}

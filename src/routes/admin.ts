@@ -108,8 +108,8 @@ adminRouter.get('/deals', async (req, res, next) => {
       `SELECT d.id, d.status, d.created_at, d.updated_at,
               o.id AS order_id, o.want_asset, o.want_amount,
               o.status AS order_status, o.location_city,
-              cr.username AS creator_username, cr.first_name AS creator_name,
-              re.username AS responder_username, re.first_name AS responder_name
+              d.creator_user_id, cr.username AS creator_username, cr.first_name AS creator_name,
+              d.responder_user_id, re.username AS responder_username, re.first_name AS responder_name
          FROM deals d
          JOIN orders o  ON o.id = d.order_id
          JOIN users  cr ON cr.id = d.creator_user_id
