@@ -281,7 +281,7 @@ export function OrderCard({
             </span>
           </div>
           <div className="pd-order-line">
-            <span className="pd-order-label">Gives</span>
+            <span className="pd-order-label">Offers</span>
             <span className="pd-order-value">
               {primary ? (
                 <>
