@@ -8,6 +8,23 @@
 /* ---- Reset & canvas ------------------------------------------------------- */
 * { box-sizing: border-box; }
 
+/* Keep a focused field clear of the soft keyboard. --pd-keyboard-height is set
+   from window.visualViewport (see tg.ts setupKeyboardTracking); 0 when closed. */
+html { scroll-padding-bottom: calc(var(--pd-keyboard-height, 0px) + 24px); }
+
+/* Fallback clearance for clients with NO window.visualViewport (very old
+   WebViews). There scrollFieldIntoView can only centre the field against the
+   full layout viewport, so the keyboard-height var is never set; tg.ts flags
+   this path with data-no-visualviewport and we restore the generous
+   scroll-margin so a low field is not left under the keyboard. */
+html[data-no-visualviewport] .pd-field,
+html[data-no-visualviewport] input.pd-input,
+html[data-no-visualviewport] select.pd-input,
+html[data-no-visualviewport] textarea.pd-input,
+html[data-no-visualviewport] .pd-amount-field {
+  scroll-margin-bottom: 280px;
+}
+
 body {
   margin: 0;
   font-family: var(--pd-ui);
@@ -29,7 +46,7 @@ body {
   padding:
     calc(16px + var(--tg-content-safe-area-inset-top, 0px))
     calc(16px + var(--tg-content-safe-area-inset-right, 0px))
-    calc(var(--pd-sp-5) + 120px + max(env(safe-area-inset-bottom), var(--tg-content-safe-area-inset-bottom, 0px)))
+    calc(var(--pd-sp-5) + 120px + var(--pd-keyboard-height, 0px) + max(env(safe-area-inset-bottom), var(--tg-content-safe-area-inset-bottom, 0px)))
     calc(16px + var(--tg-content-safe-area-inset-left, 0px));
   max-width: 640px;
   margin: 0 auto;
@@ -78,7 +95,12 @@ body {
     calc(7px + max(env(safe-area-inset-bottom), var(--tg-safe-area-inset-bottom, 0px)))
     max(4px, var(--tg-safe-area-inset-left, 0px));
   z-index: 100;
+  transition: transform .15s ease;
 }
+/* While typing, slide the fixed tabbar off-screen so it never sits between the
+   focused field and the keyboard (covers clients that don't shrink the layout
+   viewport). data-keyboard-open is toggled in tg.ts; reappears on blur. */
+html[data-keyboard-open] .pd-tabbar { transform: translateY(100%); }
 .pd-tab {
   flex: 1;
   background: none;
@@ -500,7 +522,7 @@ button.pd-card:active { opacity: .8; transform: scale(.995); }
   padding: 0 12px;
   cursor: text;
   /* keep the field clear of the on-screen keyboard when scrolled into view */
-  scroll-margin-bottom: 280px;
+  scroll-margin-bottom: 24px;
   transition: border-color .15s;
 }
 .pd-field:focus-within { border-color: var(--pd-accent-eff); }
@@ -541,7 +563,7 @@ input.pd-input, select.pd-input, textarea.pd-input {
   padding: 11px 13px;
   width: 100%;
   /* keep the field clear of the on-screen keyboard when scrolled into view */
-  scroll-margin-bottom: 280px;
+  scroll-margin-bottom: 24px;
   transition: border-color .15s;
 }
 input.pd-input:focus, select.pd-input:focus, textarea.pd-input:focus {
@@ -960,7 +982,7 @@ textarea.pd-input { resize: vertical; min-height: 64px; }
   padding: 0 14px;
   cursor: text;
   /* keep the field clear of the on-screen keyboard when scrolled into view */
-  scroll-margin-bottom: 280px;
+  scroll-margin-bottom: 24px;
   transition: border-color .15s;
 }
 .pd-amount-field:focus-within { border-color: var(--pd-accent-eff); }
