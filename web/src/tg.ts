@@ -10,6 +10,7 @@ interface TgWebApp {
   safeAreaInset?: Partial<Record<'top' | 'bottom' | 'left' | 'right', number>>;
   contentSafeAreaInset?: Partial<Record<'top' | 'bottom' | 'left' | 'right', number>>;
   isVersionAtLeast?(version: string): boolean;
+  disableVerticalSwipes?(): void;
   ready(): void;
   expand(): void;
   onEvent?(eventType: string, cb: () => void): void;
@@ -59,6 +60,16 @@ export function ready(): void {
 export function expandViewport(): void {
   wa?.expand();
   applyViewport();
+}
+
+// Stop Telegram's swipe-to-minimise gesture from stealing the vertical drag
+// while the user scrolls a focused field above the keyboard. Bot API 7.7+ only
+// (guarded), and a no-op in a plain browser / older client where the method is
+// absent. Wrapped in try/catch so a client that exposes a half-implemented stub
+// can't break boot.
+export function disableSwipes(): void {
+  if (!wa?.isVersionAtLeast?.('7.7')) return;
+  try { wa.disableVerticalSwipes?.(); } catch {}
 }
 
 function colorScheme(): 'light' | 'dark' {
@@ -137,6 +148,37 @@ export function syncTelegramEnvironment(): () => void {
   for (const [event, cb] of handlers) wa?.onEvent?.(event, cb);
   return () => {
     for (const [event, cb] of handlers) wa?.offEvent?.(event, cb);
+  };
+}
+
+// Track the on-screen keyboard via `window.visualViewport`. Telegram fires no
+// keyboard event on Android and does NOT shrink the layout viewport, but the
+// WebView's visual viewport *does* shrink — so the gap between it and
+// `innerHeight` is the keyboard height. We publish that as `--pd-keyboard-height`
+// (px, 0 when closed) and toggle `data-keyboard-open` on <html>, which the CSS
+// uses to pad the scroll root and slide the fixed tabbar out of the way.
+// A >120px threshold rejects the small visual-viewport jitter that isn't a
+// keyboard. Returns a cleanup that detaches listeners and clears the styling.
+export function setupKeyboardTracking(): () => void {
+  const vv = window.visualViewport;
+  const root = document.documentElement;
+  if (!vv) return () => {};
+  const update = () => {
+    const overlap = window.innerHeight - vv.height - vv.offsetTop;
+    const keyboard = Math.max(0, Math.round(overlap));
+    const open = keyboard > 120;
+    root.style.setProperty('--pd-keyboard-height', `${open ? keyboard : 0}px`);
+    if (open) root.setAttribute('data-keyboard-open', '');
+    else root.removeAttribute('data-keyboard-open');
+  };
+  update();
+  vv.addEventListener('resize', update);
+  vv.addEventListener('scroll', update);
+  return () => {
+    vv.removeEventListener('resize', update);
+    vv.removeEventListener('scroll', update);
+    root.style.removeProperty('--pd-keyboard-height');
+    root.removeAttribute('data-keyboard-open');
   };
 }
 
@@ -233,12 +275,33 @@ export function haptic(type: 'success' | 'warning' | 'error' = 'success'): void 
   wa?.HapticFeedback?.notificationOccurred(type);
 }
 
-// onFocus handler: scroll a focused field into the centre of the viewport so the
-// on-screen keyboard never hides it. Telegram/Android don't shrink the viewport
-// on focus, so without this the field can sit underneath the keyboard. Deferred
-// ~150ms (not a single rAF) so the keyboard has finished animating in before we
-// measure; `behavior:'instant'` avoids a smooth-scroll that fights that animation.
+// onFocus handler: nudge a focused field clear of the on-screen keyboard.
+// Telegram/Android don't shrink the *layout* viewport on focus, so a blind
+// `scrollIntoView({block:'center'})` centres against the full pre-keyboard
+// height and can leave low fields under the keyboard. Instead we measure the
+// field against the *visual* viewport (which does shrink) and scroll the window
+// by only the delta needed to bring it into the visible band — never more.
+// Deferred ~200ms so the keyboard has finished animating in (and visualViewport
+// has settled) before we measure; `behavior:'instant'` avoids fighting that
+// animation. Falls back to the old centring when visualViewport is unavailable.
 export function scrollFieldIntoView(el: HTMLElement | null): void {
   if (!el) return;
-  setTimeout(() => el.scrollIntoView({ behavior: 'instant', block: 'center' }), 150);
+  const MARGIN = 16;
+  setTimeout(() => {
+    const vv = window.visualViewport;
+    if (!vv) {
+      el.scrollIntoView({ behavior: 'instant', block: 'center' });
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const visibleTop = vv.offsetTop;
+    const visibleBottom = vv.offsetTop + vv.height;
+    let delta = 0;
+    if (rect.bottom > visibleBottom - MARGIN) {
+      delta = rect.bottom - (visibleBottom - MARGIN);
+    } else if (rect.top < visibleTop + MARGIN) {
+      delta = rect.top - (visibleTop + MARGIN);
+    }
+    if (delta !== 0) window.scrollBy({ top: delta, behavior: 'instant' });
+  }, 200);
 }
