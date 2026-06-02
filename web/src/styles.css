@@ -97,6 +97,28 @@ body {
 .pd-tab.is-active { color: var(--pd-accent-eff); }
 .pd-tab-label { font-size: 10.5px; font-weight: 600; }
 
+.pd-tab-fab {
+  position: relative;
+  top: -10px;
+  color: var(--pd-accent-eff);
+}
+.pd-fab-circle {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--pd-accent-eff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pd-accent-text);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--pd-accent-eff) 50%, transparent);
+  transition: transform .15s, box-shadow .15s;
+}
+.pd-tab-fab:active .pd-fab-circle {
+  transform: scale(.92);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--pd-accent-eff) 35%, transparent);
+}
+
 /* ---- SVG icon wrapper ----------------------------------------------------- */
 .pd-ic { display: inline-block; flex: none; }
 
