@@ -71,11 +71,6 @@ export function App() {
     return <OrderDetail orderId={detailOrderId} me={me} onBack={() => setDetailOrderId(null)} />;
   }
 
-  const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'book',    label: 'Book',    icon: 'book' },
-    { id: 'profile', label: 'Profile', icon: 'user' },
-  ];
-
   function nav(id: Tab) { if (id !== tab) hapticSelection(); setTab(id); }
 
   return (
