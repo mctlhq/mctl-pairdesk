@@ -12,6 +12,19 @@
    from window.visualViewport (see tg.ts setupKeyboardTracking); 0 when closed. */
 html { scroll-padding-bottom: calc(var(--pd-keyboard-height, 0px) + 24px); }
 
+/* Fallback clearance for clients with NO window.visualViewport (very old
+   WebViews). There scrollFieldIntoView can only centre the field against the
+   full layout viewport, so the keyboard-height var is never set; tg.ts flags
+   this path with data-no-visualviewport and we restore the generous
+   scroll-margin so a low field is not left under the keyboard. */
+html[data-no-visualviewport] .pd-field,
+html[data-no-visualviewport] input.pd-input,
+html[data-no-visualviewport] select.pd-input,
+html[data-no-visualviewport] textarea.pd-input,
+html[data-no-visualviewport] .pd-amount-field {
+  scroll-margin-bottom: 280px;
+}
+
 body {
   margin: 0;
   font-family: var(--pd-ui);

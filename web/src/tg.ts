@@ -69,6 +69,9 @@ export function expandViewport(): void {
 // can't break boot.
 export function disableSwipes(): void {
   if (!wa?.isVersionAtLeast?.('7.7')) return;
+  // Called once at init and left off for the whole session (not scoped to a
+  // focus handler): the gesture would otherwise steal vertical drags even in
+  // the brief gaps between keyboard opens, and this is a form-heavy app.
   try { wa.disableVerticalSwipes?.(); } catch {}
 }
 
@@ -151,22 +154,40 @@ export function syncTelegramEnvironment(): () => void {
   };
 }
 
-// Track the on-screen keyboard via `window.visualViewport`. Telegram fires no
-// keyboard event on Android and does NOT shrink the layout viewport, but the
-// WebView's visual viewport *does* shrink — so the gap between it and
-// `innerHeight` is the keyboard height. We publish that as `--pd-keyboard-height`
-// (px, 0 when closed) and toggle `data-keyboard-open` on <html>, which the CSS
-// uses to pad the scroll root and slide the fixed tabbar out of the way.
-// A >120px threshold rejects the small visual-viewport jitter that isn't a
-// keyboard. Returns a cleanup that detaches listeners and clears the styling.
+// Track the on-screen keyboard via `window.visualViewport` and publish its
+// height as `--pd-keyboard-height` (px, 0 when closed) plus a `data-keyboard-open`
+// flag on <html>, which the CSS uses to pad the scroll root and slide the fixed
+// tabbar out of the way. We must cover BOTH viewport modes:
+//   - default TG Android: the layout viewport (`innerHeight`) does NOT shrink,
+//     only the visual viewport does, leaving an overlap band below it.
+//   - `interactive-widget=resizes-content` honoured (Chromium 108+): the layout
+//     viewport shrinks TOGETHER with the visual viewport, so the overlap band is
+//     ~0 — detect via the drop from a stored "no keyboard" baseline instead.
+// Taking the max of both signals keeps detection (and the tabbar slide-out)
+// working regardless of which mode the client is in. A >120px threshold rejects
+// small visual-viewport jitter that isn't a keyboard. Returns a cleanup that
+// detaches listeners and clears the styling.
 export function setupKeyboardTracking(): () => void {
   const vv = window.visualViewport;
   const root = document.documentElement;
-  if (!vv) return () => {};
+  if (!vv) {
+    // No visualViewport (very old WebView): we can't measure the keyboard, so
+    // scrollFieldIntoView falls back to centring. Flag it so the CSS restores
+    // the generous scroll-margin clearance for this path (see styles.css).
+    root.setAttribute('data-no-visualviewport', '');
+    return () => root.removeAttribute('data-no-visualviewport');
+  }
+  // Largest viewport height seen while the keyboard is closed. Re-baselined on
+  // every closed frame so orientation / chrome changes don't leave it stale.
+  let baseline = Math.max(window.innerHeight, vv.height);
   const update = () => {
-    const overlap = window.innerHeight - vv.height - vv.offsetTop;
-    const keyboard = Math.max(0, Math.round(overlap));
+    const layout = window.innerHeight;
+    const visual = vv.height;
+    const overlap = layout - visual - vv.offsetTop; // default-mode signal
+    const shrink = baseline - Math.max(layout, visual); // resizes-content signal
+    const keyboard = Math.max(0, Math.round(Math.max(overlap, shrink)));
     const open = keyboard > 120;
+    if (!open) baseline = Math.max(baseline, layout, visual);
     root.style.setProperty('--pd-keyboard-height', `${open ? keyboard : 0}px`);
     if (open) root.setAttribute('data-keyboard-open', '');
     else root.removeAttribute('data-keyboard-open');
@@ -284,10 +305,16 @@ export function haptic(type: 'success' | 'warning' | 'error' = 'success'): void 
 // Deferred ~200ms so the keyboard has finished animating in (and visualViewport
 // has settled) before we measure; `behavior:'instant'` avoids fighting that
 // animation. Falls back to the old centring when visualViewport is unavailable.
+let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function scrollFieldIntoView(el: HTMLElement | null): void {
   if (!el) return;
   const MARGIN = 16;
-  setTimeout(() => {
+  // Cancel a pending scroll so tapping the keyboard's "Next" through several
+  // fields in quick succession only ever scrolls toward the last-focused one.
+  if (scrollTimer != null) clearTimeout(scrollTimer);
+  scrollTimer = setTimeout(() => {
+    scrollTimer = null;
     const vv = window.visualViewport;
     if (!vv) {
       el.scrollIntoView({ behavior: 'instant', block: 'center' });
