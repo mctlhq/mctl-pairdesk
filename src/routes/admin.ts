@@ -64,8 +64,11 @@ adminRouter.get('/orders', async (req, res, next) => {
   try {
     const ctx = getCtx(req);
     const { rows } = await pool.query(
-      `SELECT id, created_by_user_id, want_asset, want_amount, status, location_city, created_at
-         FROM orders WHERE community_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`,
+      `SELECT o.id, o.created_by_user_id, o.want_asset, o.want_amount, o.status, o.location_city, o.created_at,
+              u.username AS creator_username, u.first_name AS creator_name
+         FROM orders o
+         JOIN users u ON u.id = o.created_by_user_id
+        WHERE o.community_id = $1 AND o.deleted_at IS NULL ORDER BY o.created_at DESC LIMIT 200`,
       [ctx.communityId],
     );
     res.json({ orders: rows });
