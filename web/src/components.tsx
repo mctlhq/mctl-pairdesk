@@ -272,20 +272,20 @@ export function OrderCard({
     return (
       <button className="pd-card pd-card-outcome" onClick={tap}>
         <div className="pd-order-summary">
-          <div className="pd-order-line pd-order-line-strong">
+          <div className="pd-order-line">
             <span className="pd-order-label">Wants</span>
             <span className="pd-order-value">
-              <Glyph asset={order.want_asset} size="md" />
+              <Glyph asset={order.want_asset} size="sm" />
               <span className="pd-num">{fmtAmount(order.want_amount)}</span>
               <span>{order.want_asset}</span>
             </span>
           </div>
-          <div className="pd-order-line">
+          <div className="pd-order-line pd-order-line-strong">
             <span className="pd-order-label">Offers</span>
             <span className="pd-order-value">
               {primary ? (
                 <>
-                  <Glyph asset={primary.asset} size="sm" />
+                  <Glyph asset={primary.asset} size="md" />
                   <span className="pd-num">{primaryTotal != null ? fmtAmount(primaryTotal) : '—'}</span>
                   <span>{primary.asset}</span>
                   {order.give_options.length > 1 && <span className="pd-order-alt">+{order.give_options.length - 1} option</span>}
