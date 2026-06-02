@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { AssetSelect, Empty, fmtAmount, Icon } from '../components.js';
-import { hapticError, hapticSelection, hapticSuccess } from '../tg.js';
+import { hapticError, hapticSelection, hapticSuccess, scrollFieldIntoView } from '../tg.js';
 import { ASSETS, type Asset, type Subscription } from '../types.js';
 
 export function Subscriptions() {
@@ -65,13 +65,16 @@ export function Subscriptions() {
         </div>
 
         <span className="pd-label">City <span className="pd-label-opt">· optional</span></span>
-        <div className="pd-field">
+        <label className="pd-field">
           <Icon name="pin" size={16} cls="pd-field-ic" />
-          <input className="pd-input" placeholder="e.g. Bar" value={city} onChange={(e) => setCity(e.target.value)} />
-        </div>
+          <input className="pd-input" inputMode="text" placeholder="e.g. Bar" value={city}
+            onChange={(e) => setCity(e.target.value)}
+            onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
+        </label>
 
         <span className="pd-label">Max rate <span className="pd-label-opt">· optional</span></span>
-        <input className="pd-input" inputMode="decimal" value={maxRate} onChange={(e) => setMaxRate(e.target.value)} />
+        <input className="pd-input" inputMode="decimal" value={maxRate} onChange={(e) => setMaxRate(e.target.value)}
+          onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
 
         {err && <p style={{ color: 'var(--pd-far)', fontSize: 13, margin: '8px 0 0' }}>{err}</p>}
         <button className="pd-btn-block" disabled={busy} onClick={() => void create()}>

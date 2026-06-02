@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { Icon } from '../components.js';
-import { hasMainButton, hapticError, hapticSelection, hapticSuccess, setMainButton, showBackButton } from '../tg.js';
+import { hasMainButton, hapticError, hapticSelection, hapticSuccess, scrollFieldIntoView, setMainButton, showBackButton } from '../tg.js';
 import { type Me, PAYMENT_METHODS } from '../types.js';
 import { Admin } from './Admin.js';
 import { Deals } from './Deals.js';
@@ -79,7 +79,7 @@ export function Profile({ me, canAdmin, onSaved, onOpenOrder }: { me: Me; canAdm
   }
 
   const initial = (me.profile.display_name || me.username || 'U').slice(0, 1).toUpperCase();
-  const name = me.profile.display_name || (me.username ? `@${me.username}` : `User ${me.telegram_id}`);
+  const name = me.profile.display_name || (me.username ? `@${me.username}` : (me.telegram_id ? `User ${me.telegram_id}` : 'User'));
 
   return (
     <div className="pd-page">
@@ -116,7 +116,7 @@ export function Profile({ me, canAdmin, onSaved, onOpenOrder }: { me: Me; canAdm
       {members != null && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--pd-hint)', marginBottom: 16 }}>
           <Icon name="user" size={14} cls="pd-mut-ic" />
-          Member of a community of <span className="pd-num" style={{ fontWeight: 700, color: 'var(--pd-text-2)' }}>{members}</span> trusted traders
+          Member of a community of <span className="pd-num" style={{ fontWeight: 700, color: 'var(--pd-text-2)' }}>{members}</span> trusted users
         </div>
       )}
 
@@ -150,16 +150,19 @@ export function Profile({ me, canAdmin, onSaved, onOpenOrder }: { me: Me; canAdm
       </div>
 
       <span className="pd-label">Display name</span>
-      <input className="pd-input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+      <input className="pd-input" inputMode="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
+        onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
 
       <div style={{ display: 'flex', gap: 10 }}>
         <div style={{ flex: 1 }}>
           <span className="pd-label">City</span>
-          <input className="pd-input" value={city} onChange={(e) => setCity(e.target.value)} />
+          <input className="pd-input" inputMode="text" value={city} onChange={(e) => setCity(e.target.value)}
+            onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
         </div>
         <div style={{ flex: 1 }}>
           <span className="pd-label">Country</span>
-          <input className="pd-input" value={country} onChange={(e) => setCountry(e.target.value)} />
+          <input className="pd-input" inputMode="text" value={country} onChange={(e) => setCountry(e.target.value)}
+            onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
         </div>
       </div>
 
@@ -184,11 +187,13 @@ export function Profile({ me, canAdmin, onSaved, onOpenOrder }: { me: Me; canAdm
       </div>
 
       <span className="pd-label">Phone</span>
-      <input className="pd-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+382 …" />
+      <input className="pd-input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+382 …"
+        onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
 
       <span className="pd-label">Other contact / requisites</span>
-      <textarea className="pd-input" value={contact} onChange={(e) => setContact(e.target.value)}
-        placeholder="@handle, bank/wallet details to share on a match" />
+      <textarea className="pd-input" inputMode="text" value={contact} onChange={(e) => setContact(e.target.value)}
+        placeholder="@handle, bank/wallet details to share on a match"
+        onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
 
       {msg && <p style={{ fontSize: 13, color: msg === 'Saved.' ? 'var(--pd-good)' : 'var(--pd-far)', margin: '8px 0' }}>{msg}</p>}
       {!hasMainButton() && (
