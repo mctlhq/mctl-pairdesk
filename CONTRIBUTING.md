@@ -20,7 +20,7 @@ npm install
 npm run build:api          # compile the API (tsc) + copy schema.sql
 
 # run the API against a local Postgres, impersonating a Telegram id:
-DATABASE_URL=postgres://postgres:<password>@localhost:5432/pairdesk DATABASE_SSL=false \
+DATABASE_URL=postgres://postgres:PASSWORD@localhost:5432/pairdesk DATABASE_SSL=false \
   AUTH_DEV_BYPASS=true SUPER_ADMIN_TELEGRAM_IDS=1000 PORT=8099 npm start
 # then send requests with the X-Debug-User-Id header (AUTH_DEV_BYPASS only)
 
