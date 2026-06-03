@@ -326,6 +326,7 @@ button.pd-card:active { opacity: .8; transform: scale(.995); }
 .pd-card-rate .pd-give-unit    { color: var(--pd-hint); font-weight: 400; }
 .pd-card-rate .pd-card-foot    { gap: 6px; }
 .pd-card-rate .pd-when         { font-size: var(--pd-fs-meta); color: var(--pd-hint); }
+.pd-card-rate .pd-loc          { display: inline-flex; align-items: center; gap: 3px; color: var(--pd-hint); }
 
 /* Outcome card — amount-first order book variant */
 .pd-card-outcome .pd-order-summary {
@@ -424,6 +425,7 @@ button.pd-card:active { opacity: .8; transform: scale(.995); }
 .pd-card-outcome .pd-card-divider { height: 1px; background: var(--pd-border); margin-bottom: 10px; }
 .pd-card-outcome .pd-card-foot    { gap: 6px; }
 .pd-card-outcome .pd-when         { font-size: var(--pd-fs-meta); color: var(--pd-hint); }
+.pd-card-outcome .pd-loc          { display: inline-flex; align-items: center; gap: 3px; color: var(--pd-hint); }
 
 /* ---- Give row (detail + rate card) ---------------------------------------- */
 .pd-give {
