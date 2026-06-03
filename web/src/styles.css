@@ -918,7 +918,7 @@ textarea.pd-input { resize: vertical; min-height: 64px; }
   flex: none;
 }
 .pd-form-title { font-size: var(--pd-fs-body); font-weight: 700; }
-.pd-form-sub   { font-size: var(--pd-fs-sub); color: var(--pd-hint); margin: -8px 0 12px; line-height: 1.5; }
+.pd-form-sub   { font-size: var(--pd-fs-sub); color: var(--pd-hint); margin: 0 0 10px;   line-height: 1.5; }
 
 /* Asset selector */
 .pd-assetsel {

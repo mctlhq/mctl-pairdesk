@@ -301,6 +301,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                 onChange={(e) => setCity(e.target.value)}
                 onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
             </label>
+            <span className="pd-label">Notes <span className="pd-label-opt">· optional</span></span>
             <p className="pd-form-sub">Anything that helps a counterparty — timing, area, preferences.</p>
             <textarea className="pd-input" inputMode="text" placeholder="e.g. can meet near the marina this evening"
               value={comment} onChange={(e) => setComment(e.target.value)}
