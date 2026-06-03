@@ -311,12 +311,12 @@ export function OrderCard({
         </div>
         <div className="pd-card-divider" />
         <div className="pd-row pd-card-foot">
-          <Maker
-            maker={order.maker}
-            sub={order.location_city ? (
-              <><Icon name="pin" size={12} cls="pd-mut-ic" />{order.location_city}</>
-            ) : undefined}
-          />
+          <Maker maker={order.maker} />
+          {order.location_city && (
+            <span className="pd-loc">
+              <Icon name="pin" size={12} cls="pd-mut-ic" />{order.location_city}
+            </span>
+          )}
           <span className="pd-spacer" />
           <span className="pd-when pd-num">{fmtRelTime(order.created_at)}</span>
         </div>
@@ -398,14 +398,12 @@ export function OrderCard({
           })}
         </div>
         <div className="pd-row pd-card-foot">
-          <Maker
-            maker={order.maker}
-            sub={
-              order.location_city ? (
-                <><Icon name="pin" size={12} cls="pd-mut-ic" />{order.location_city}</>
-              ) : undefined
-            }
-          />
+          <Maker maker={order.maker} />
+          {order.location_city && (
+            <span className="pd-loc">
+              <Icon name="pin" size={12} cls="pd-mut-ic" />{order.location_city}
+            </span>
+          )}
           <span className="pd-spacer" />
           <span className="pd-when pd-num">{fmtRelTime(order.created_at)}</span>
         </div>
