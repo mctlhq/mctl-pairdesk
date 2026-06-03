@@ -56,8 +56,17 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   // alternatives could leave an option that gives the very asset being wanted.
   useEffect(() => {
     setOpts((prev) => {
+      // When the primary option's asset actually changes, clear its rate and
+      // payment methods: a rate/method chosen for the old asset is meaningless
+      // for the new one (the rate-available path self-heals via RateSlider's
+      // refetch, but the free-text 503 path would otherwise keep a stale rate).
       const synced = prev.length
-        ? [{ ...prev[0], asset: giveAsset }, ...prev.slice(1)]
+        ? [
+            prev[0].asset === giveAsset
+              ? prev[0]
+              : { ...prev[0], asset: giveAsset, max_rate: '', payment_methods: [] },
+            ...prev.slice(1),
+          ]
         : [{ id: 0, asset: giveAsset, max_rate: '', payment_methods: [] }];
       const seen = new Set<Asset>();
       const deduped = synced.filter((o) => {
