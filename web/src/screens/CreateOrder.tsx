@@ -40,13 +40,13 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   function handleGiveChange(a: Asset) {
     hapticSelection();
     setGiveAsset(a);
-    if (a === wantAsset) setWantAsset(nextFree(a, a));
+    if (a === wantAsset) setWantAsset(nextFree(a, giveAsset));
   }
 
   function handleWantChange(a: Asset) {
     hapticSelection();
     setWantAsset(a);
-    if (a === giveAsset) setGiveAsset(nextFree(a, a));
+    if (a === giveAsset) setGiveAsset(nextFree(a, wantAsset));
   }
 
   function handleSwap() {
