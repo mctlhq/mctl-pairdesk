@@ -48,6 +48,27 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
     setWantAsset(giveAsset);
   }
 
+  // Keep the first give option locked to the step-1 give asset, and drop any
+  // alternative that now collides with the want asset, the give asset, or an
+  // earlier option. Without this, changing the pair on step 1 leaves opts[0]
+  // on its initial asset (step 2 would show the wrong currency and submit the
+  // wrong give_options[0].asset), and editing wantAsset after adding
+  // alternatives could leave an option that gives the very asset being wanted.
+  useEffect(() => {
+    setOpts((prev) => {
+      const synced = prev.length
+        ? [{ ...prev[0], asset: giveAsset }, ...prev.slice(1)]
+        : [{ id: 0, asset: giveAsset, max_rate: '', payment_methods: [] }];
+      const seen = new Set<Asset>();
+      const deduped = synced.filter((o) => {
+        if (o.asset === wantAsset || seen.has(o.asset)) return false;
+        seen.add(o.asset);
+        return true;
+      });
+      return deduped.length ? deduped : [{ id: 0, asset: giveAsset, max_rate: '', payment_methods: [] }];
+    });
+  }, [giveAsset, wantAsset]);
+
   // No haptic here: updateOpt also backs the free-text rate input, where a buzz
   // on every keystroke is noise. Discrete callers (asset select) buzz themselves.
   function updateOpt(i: number, patch: Partial<OptDraft>) {
@@ -104,7 +125,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   // Step 2: enabled when at least one give option has a valid want-amount.
   // Step 3: enabled when not busy.
   const nextEnabled = step === 1 ? true : step === 2 ? amountValid : !busy;
-  const nextText = step === 1 ? 'Continue' : step === 2 ? 'Continue' : (busy ? 'Publishing...' : 'Publish request');
+  const nextText = step === 1 ? 'Continue' : step === 2 ? 'Continue' : (busy ? 'Publishing…' : 'Publish request');
 
   function primaryAction() {
     if (step === 1) {
@@ -145,8 +166,8 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
     id: 0, want_asset: wantAsset, want_amount: wantAmount || '0', status: 'active',
     location_city: city || null, location_country: null, comment: null,
     created_by_user_id: 0, created_at: new Date().toISOString(), expires_at: null,
-    give_options: opts.map((o, i) => ({
-      id: i,
+    give_options: opts.map((o) => ({
+      id: o.id,
       asset: o.asset,
       max_rate: o.max_rate || null,
       payment_methods: o.payment_methods,
@@ -274,7 +295,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={() => setStep(2)}>Back</button>
             {!hasMainButton() && <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={busy} onClick={primaryAction}>
-              {busy ? 'Publishing...' : 'Publish request'}
+              {busy ? 'Publishing…' : 'Publish request'}
             </button>}
           </div>
         </div>
