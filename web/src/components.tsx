@@ -1,4 +1,7 @@
 import { ASSETS, type Asset, type GiveOption, type Order } from './types.js';
+import { useEffect, useRef, useState } from 'react';
+import { api } from './api.js';
+import { scrollFieldIntoView } from './tg.js';
 
 // ---- SVG icon paths --------------------------------------------------------
 export const PD_ICON: Record<string, string> = {
@@ -554,4 +557,155 @@ function fmtRelTime(iso: string): string {
   } catch {
     return '';
   }
+}
+
+// ---- Rate slider (Create order step 2) -------------------------------------
+
+const MAX_DEVIATION_PCT = 10;
+
+interface RateSliderProps {
+  base: Asset;
+  quote: Asset;
+  wantAmount: string;
+  onWantAmountChange: (v: string) => void;
+  onRateResolved: (rate: string | null) => void;
+}
+
+export function RateSlider({ base, quote, wantAmount, onWantAmountChange, onRateResolved }: RateSliderProps) {
+  const [refRate, setRefRate] = useState<number | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
+  const [offsetPct, setOffsetPct] = useState(0);
+  const [giveInputValue, setGiveInputValue] = useState('');
+  const editingGive = useRef(false);
+  // Always-current ref so effects that depend on [refRate, offsetPct] can read
+  // the latest wantAmount without adding it to their dependency array (which
+  // would make them also fire on every want-amount keystroke).
+  const wantAmountRef = useRef(wantAmount);
+  useEffect(() => { wantAmountRef.current = wantAmount; });
+
+  // Fetch reference rate; reset when base/quote pair changes.
+  useEffect(() => {
+    let cancel = false;
+    setRefRate(null);
+    setUnavailable(false);
+    setOffsetPct(0);
+    onRateResolved(null);
+    api.get<{ rate: number }>(`/rates/reference?base=${base}&quote=${quote}`)
+      .then((r) => { if (!cancel) setRefRate(r.rate); })
+      .catch(() => { if (!cancel) setUnavailable(true); });
+    return () => { cancel = true; };
+  }, [base, quote]);
+
+  // Notify parent and recompute give when the resolved rate changes.
+  useEffect(() => {
+    if (refRate == null || unavailable) return;
+    const resolvedRate = refRate * (1 + offsetPct / 100);
+    onRateResolved(resolvedRate.toFixed(8));
+    if (!editingGive.current) {
+      const want = Number.parseFloat(wantAmountRef.current);
+      setGiveInputValue(Number.isFinite(want) && want > 0 ? (want * resolvedRate).toFixed(2) : '');
+    }
+  }, [refRate, offsetPct, unavailable]);
+
+  // Recompute give when wantAmount prop changes (slider stays; rate unchanged).
+  useEffect(() => {
+    if (refRate == null || unavailable || editingGive.current) return;
+    const resolvedRate = refRate * (1 + offsetPct / 100);
+    const want = Number.parseFloat(wantAmount);
+    setGiveInputValue(Number.isFinite(want) && want > 0 ? (want * resolvedRate).toFixed(2) : '');
+  }, [wantAmount]);
+
+  if (unavailable) {
+    return (
+      <div className="pd-rate-slider">
+        <input
+          className="pd-input pd-num"
+          inputMode="decimal"
+          placeholder="e.g. 99"
+          onChange={(e) => onRateResolved(e.target.value || null)}
+          onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+        />
+        <p className="pd-rate-hint">Reference rate unavailable — order can still be published</p>
+      </div>
+    );
+  }
+
+  if (refRate == null) {
+    return <p className="pd-rate-hint">Loading reference…</p>;
+  }
+
+  const resolvedRate = refRate * (1 + offsetPct / 100);
+  const sliderMin = refRate * (1 - MAX_DEVIATION_PCT / 100);
+  const sliderMax = refRate * (1 + MAX_DEVIATION_PCT / 100);
+
+  return (
+    <div className="pd-rate-slider">
+      <div className="pd-dual-amounts">
+        <label className="pd-amount-field">
+          <span className="pd-amount-glyph">{PD_GLYPH[base]}</span>
+          <input
+            className="pd-input pd-input-amount pd-num"
+            inputMode="decimal"
+            placeholder="0"
+            value={wantAmount}
+            onChange={(e) => onWantAmountChange(e.target.value)}
+            onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+          />
+          <span className="pd-amount-code">{base}</span>
+        </label>
+        <label className="pd-amount-field">
+          <span className="pd-amount-glyph">{PD_GLYPH[quote]}</span>
+          <input
+            className="pd-input pd-input-amount pd-num"
+            inputMode="decimal"
+            placeholder="0"
+            value={giveInputValue}
+            onChange={(e) => {
+              const val = e.target.value;
+              setGiveInputValue(val);
+              const give = Number.parseFloat(val);
+              if (Number.isFinite(give) && give > 0 && resolvedRate > 0) {
+                onWantAmountChange((give / resolvedRate).toFixed(2));
+              }
+            }}
+            onFocus={() => { editingGive.current = true; }}
+            onBlur={() => {
+              editingGive.current = false;
+              if (giveInputValue === '') {
+                const want = Number.parseFloat(wantAmount);
+                if (Number.isFinite(want) && want > 0) {
+                  setGiveInputValue((want * resolvedRate).toFixed(2));
+                }
+              }
+            }}
+          />
+          <span className="pd-amount-code">{quote}</span>
+        </label>
+      </div>
+      <div className="pd-slider-track">
+        <input
+          type="range"
+          className="pd-slider"
+          min={sliderMin}
+          max={sliderMax}
+          step="any"
+          value={resolvedRate}
+          onChange={(e) => {
+            const newRate = Number.parseFloat(e.target.value);
+            const newOffset = ((newRate - refRate) / refRate) * 100;
+            setOffsetPct(Math.max(-MAX_DEVIATION_PCT, Math.min(MAX_DEVIATION_PCT, newOffset)));
+          }}
+        />
+        <div className="pd-slider-labels">
+          <span>-{MAX_DEVIATION_PCT}%</span>
+          <span>Market ref.</span>
+          <span>+{MAX_DEVIATION_PCT}%</span>
+        </div>
+      </div>
+      <div className="pd-slider-info">
+        <span className="pd-slider-rate-val pd-num">{fmtAmount(resolvedRate)} {quote}/{base}</span>
+        <RateChip delta={offsetPct.toFixed(1)} style="chip" />
+      </div>
+    </div>
+  );
 }
