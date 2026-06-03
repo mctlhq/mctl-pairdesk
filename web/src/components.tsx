@@ -574,12 +574,14 @@ export function RateSlider({ base, quote, wantAmount, onWantAmountChange, onRate
   const [unavailable, setUnavailable] = useState(false);
   const [offsetPct, setOffsetPct] = useState(0);
   const [giveInputValue, setGiveInputValue] = useState('');
-  const editingGive = useRef(false);
+  const lastEditedField = useRef<'want' | 'give'>('want');
   // Always-current ref so effects that depend on [refRate, offsetPct] can read
   // the latest wantAmount without adding it to their dependency array (which
   // would make them also fire on every want-amount keystroke).
   const wantAmountRef = useRef(wantAmount);
   useEffect(() => { wantAmountRef.current = wantAmount; });
+  const giveInputValueRef = useRef(giveInputValue);
+  useEffect(() => { giveInputValueRef.current = giveInputValue; });
 
   // Fetch reference rate; reset when base/quote pair changes.
   useEffect(() => {
@@ -587,6 +589,8 @@ export function RateSlider({ base, quote, wantAmount, onWantAmountChange, onRate
     setRefRate(null);
     setUnavailable(false);
     setOffsetPct(0);
+    lastEditedField.current = 'want';
+    setGiveInputValue('');
     onRateResolved(null);
     api.get<{ rate: number }>(`/rates/reference?base=${base}&quote=${quote}`)
       .then((r) => { if (!cancel) setRefRate(r.rate); })
@@ -594,20 +598,25 @@ export function RateSlider({ base, quote, wantAmount, onWantAmountChange, onRate
     return () => { cancel = true; };
   }, [base, quote]);
 
-  // Notify parent and recompute give when the resolved rate changes.
+  // Notify parent and recompute the non-anchored side when the resolved rate changes.
   useEffect(() => {
     if (refRate == null || unavailable) return;
     const resolvedRate = refRate * (1 + offsetPct / 100);
     onRateResolved(resolvedRate.toFixed(8));
-    if (!editingGive.current) {
+    if (lastEditedField.current === 'want') {
       const want = Number.parseFloat(wantAmountRef.current);
       setGiveInputValue(Number.isFinite(want) && want > 0 ? (want * resolvedRate).toFixed(2) : '');
+    } else {
+      const give = Number.parseFloat(giveInputValueRef.current);
+      if (Number.isFinite(give) && give > 0 && resolvedRate > 0) {
+        onWantAmountChange((give / resolvedRate).toFixed(2));
+      }
     }
   }, [refRate, offsetPct, unavailable]);
 
   // Recompute give when wantAmount prop changes (slider stays; rate unchanged).
   useEffect(() => {
-    if (refRate == null || unavailable || editingGive.current) return;
+    if (refRate == null || unavailable || lastEditedField.current !== 'want') return;
     const resolvedRate = refRate * (1 + offsetPct / 100);
     const want = Number.parseFloat(wantAmount);
     setGiveInputValue(Number.isFinite(want) && want > 0 ? (want * resolvedRate).toFixed(2) : '');
@@ -668,7 +677,7 @@ export function RateSlider({ base, quote, wantAmount, onWantAmountChange, onRate
             inputMode="decimal"
             placeholder="0"
             value={wantAmount}
-            onChange={(e) => onWantAmountChange(e.target.value)}
+            onChange={(e) => { lastEditedField.current = 'want'; onWantAmountChange(e.target.value); }}
             onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
           />
           <span className="pd-amount-code">{base}</span>
@@ -682,15 +691,14 @@ export function RateSlider({ base, quote, wantAmount, onWantAmountChange, onRate
             value={giveInputValue}
             onChange={(e) => {
               const val = e.target.value;
+              lastEditedField.current = 'give';
               setGiveInputValue(val);
               const give = Number.parseFloat(val);
               if (Number.isFinite(give) && give > 0 && resolvedRate > 0) {
                 onWantAmountChange((give / resolvedRate).toFixed(2));
               }
             }}
-            onFocus={() => { editingGive.current = true; }}
             onBlur={() => {
-              editingGive.current = false;
               if (giveInputValue === '') {
                 const want = Number.parseFloat(wantAmount);
                 if (Number.isFinite(want) && want > 0) {
