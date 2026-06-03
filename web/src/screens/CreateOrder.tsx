@@ -56,18 +56,24 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   // alternatives could leave an option that gives the very asset being wanted.
   useEffect(() => {
     setOpts((prev) => {
-      // When the primary option's asset actually changes, clear its rate and
-      // payment methods: a rate/method chosen for the old asset is meaningless
-      // for the new one (the rate-available path self-heals via RateSlider's
-      // refetch, but the free-text 503 path would otherwise keep a stale rate).
-      const synced = prev.length
-        ? [
-            prev[0].asset === giveAsset
-              ? prev[0]
-              : { ...prev[0], asset: giveAsset, max_rate: '', payment_methods: [] },
-            ...prev.slice(1),
-          ]
-        : [{ id: 0, asset: giveAsset, max_rate: '', payment_methods: [] }];
+      const synced = (() => {
+        if (!prev.length) return [{ id: 0, asset: giveAsset, max_rate: '', payment_methods: [] }];
+        if (prev[0].asset === giveAsset) return prev;
+        // The step-1 give asset changed. If an alternative is already configured
+        // on that asset, PROMOTE it to primary (swap slots) so the user's rate /
+        // payment methods for it survive — don't overwrite and dedup-discard.
+        const matchIdx = prev.findIndex((o, idx) => idx > 0 && o.asset === giveAsset);
+        if (matchIdx > 0) {
+          const next = [...prev];
+          [next[0], next[matchIdx]] = [next[matchIdx], next[0]];
+          return next;
+        }
+        // No matching alternative: retarget the primary and clear its rate +
+        // payment methods — a rate/method chosen for the old asset is meaningless
+        // for the new one (the rate-available path self-heals via RateSlider's
+        // refetch, but the free-text 503 path would otherwise keep a stale rate).
+        return [{ ...prev[0], asset: giveAsset, max_rate: '', payment_methods: [] }, ...prev.slice(1)];
+      })();
       const seen = new Set<Asset>();
       const deduped = synced.filter((o) => {
         if (o.asset === wantAsset || seen.has(o.asset)) return false;
@@ -90,6 +96,10 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   }
 
   function removeOpt(i: number) {
+    // Index 0 is the primary give option, locked to the step-1 give asset — only
+    // alternatives (i > 0) are removable. The remove button is hidden for i === 0,
+    // but guard here too so the primary can never be dropped.
+    if (i === 0) return;
     hapticSelection();
     setOpts((prev) => prev.filter((_, idx) => idx !== i));
   }
@@ -226,7 +236,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                       <span className={`pd-glyph pd-glyph-${o.asset} pd-glyph-sm`} aria-hidden="true">{PD_GLYPH[o.asset]}</span>
                       <span className="pd-asset-code">{o.asset}</span>
                     </span>
-                    {opts.length > 1 && (
+                    {i > 0 && (
                       <button
                         type="button"
                         className="pd-btn-ghost-sm"
