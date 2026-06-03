@@ -1,15 +1,15 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-// Build the React Mini App SPA into the backend's /public dir. PairDesk has no
-// separate marketing landing (unlike loyalty), so the SPA owns the /public root
-// with base '/'. The Express SPA fallback maps /app, /admin, /docs to index.html;
-// assets resolve from the absolute /assets/* path on every route.
+// Landing page at `/` (Astro, public/); Mini App SPA at `/app` (Vite, public/app/).
+// base '/app/' ensures all asset URLs are prefixed with /app/ so they resolve
+// correctly when the SPA is served at the /app sub-path.
+// The Express SPA fallback maps /app, /admin, /docs to public/app/index.html.
 export default defineConfig({
   plugins: [react()],
-  base: '/',
+  base: '/app/',
   build: {
-    outDir: '../public',
+    outDir: '../public/app',
     emptyOutDir: true,
   },
   server: {

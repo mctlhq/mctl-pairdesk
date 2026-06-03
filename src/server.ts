@@ -62,7 +62,7 @@ app.use(express.static(PUBLIC_DIR));
 
 // ---- Mini App SPA fallback ----
 app.get(['/app', '/app/*', '/admin', '/admin/*', '/docs', '/docs/*'], (_req, res) => {
-  res.sendFile(resolve(PUBLIC_DIR, 'index.html'), (err) => {
+  res.sendFile(resolve(PUBLIC_DIR, 'app', 'index.html'), (err) => {
     if (err && !res.headersSent) res.status(404).json({ error: 'mini app not built' });
   });
 });

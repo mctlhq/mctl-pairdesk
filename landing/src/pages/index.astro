@@ -1,0 +1,136 @@
+---
+import '../styles/landing.css';
+
+// Confirmed bot handle. There is no PUBLIC_BOT_USERNAME wired through the build
+// (only the bot token lives in Vault), so the handle is inlined here directly.
+const botUsername = 'mctl_pairdesk_bot';
+const botUrl = `https://t.me/${botUsername}`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="PairDesk — a closed P2P bulletin board for EUR, RUB, and USDT exchange requests. No custody, no payments, no escrow. Apply to join through Telegram." />
+    <meta property="og:title" content="PairDesk" />
+    <meta property="og:description" content="A closed P2P bulletin board for vetted community members. Post and match EUR / RUB / USDT exchange requests — no custody, no escrow." />
+    <meta property="og:type" content="website" />
+    <title>PairDesk</title>
+  </head>
+  <body>
+    <header class="landing-header">
+      <div class="landing-header__logo" aria-hidden="true">P</div>
+      <span class="landing-header__name">PairDesk</span>
+    </header>
+
+    <main class="landing-main">
+      <!-- Hero -->
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero__badge">Closed community · Invite only</div>
+        <h1 class="hero__title" id="hero-title">
+          P2P exchange, <span class="accent">without the middleman</span>
+        </h1>
+        <p class="hero__subtitle">
+          PairDesk is a closed bulletin board where vetted community members post
+          and match EUR, RUB, and USDT exchange requests. No custody, no payments,
+          no escrow — PairDesk is never a party to a deal.
+        </p>
+        <a href={botUrl} class="cta-btn">
+          <!-- Telegram paper-plane icon (inline SVG, no external asset dependency) -->
+          <svg class="cta-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+          </svg>
+          Open PairDesk bot
+        </a>
+      </section>
+
+      <!-- What is PairDesk -->
+      <section aria-labelledby="what-title">
+        <div class="cards">
+          <article class="card">
+            <div class="card__icon" aria-hidden="true">📋</div>
+            <h2 class="card__title" id="what-title">A bulletin board, not an exchange</h2>
+            <p class="card__body">
+              Members post what they want to receive and what they are willing to give.
+              Other members respond with an offer. PairDesk facilitates introductions only
+              — it holds no funds, processes no payments, and is never a party to any deal.
+              No custody, no escrow, ever.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="card__icon" aria-hidden="true">🔒</div>
+            <h2 class="card__title">Closed and vetted</h2>
+            <p class="card__body">
+              Access is by application only. Every new member starts in a pending state
+              and must be approved by an admin before posting or responding to orders.
+              Contact details are only revealed between the two matched parties, once a
+              deal is accepted.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="card__icon" aria-hidden="true">💱</div>
+            <h2 class="card__title">EUR · RUB · USDT</h2>
+            <p class="card__body">
+              Supported assets: Euro, Russian Ruble, and USDT (Tether). Makers specify
+              the asset they want to receive and one or more give-options with an
+              acceptable rate and payment methods.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- How to join -->
+      <section class="join-section" aria-labelledby="join-title">
+        <h2 class="join-section__title" id="join-title">How to join</h2>
+        <ol class="steps">
+          <li class="step">
+            <span class="step__num" aria-label="Step 1">1</span>
+            <p class="step__text">
+              <strong>Open the PairDesk bot.</strong> Tap the button above or search
+              for <strong>@{botUsername}</strong> on Telegram.
+            </p>
+          </li>
+          <li class="step">
+            <span class="step__num" aria-label="Step 2">2</span>
+            <p class="step__text">
+              <strong>Send /start.</strong> The bot registers your account. Your status
+              will be <em>pending</em> until approved.
+            </p>
+          </li>
+          <li class="step">
+            <span class="step__num" aria-label="Step 3">3</span>
+            <p class="step__text">
+              <strong>Wait for admin approval.</strong> A community admin reviews your
+              account and approves it. You will receive a Telegram notification when
+              your status changes.
+            </p>
+          </li>
+          <li class="step">
+            <span class="step__num" aria-label="Step 4">4</span>
+            <p class="step__text">
+              <strong>Start using PairDesk.</strong> Once approved, open the Mini App
+              from the bot to browse the order book, post your own orders, and respond
+              to existing ones.
+            </p>
+          </li>
+        </ol>
+        <a href={botUrl} class="cta-btn">
+          <svg class="cta-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+          </svg>
+          Get started on Telegram
+        </a>
+      </section>
+    </main>
+
+    <footer class="landing-footer">
+      <p class="landing-footer__text">
+        PairDesk is a bulletin board only. It does not hold funds, process payments,
+        or act as a party to any transaction.
+      </p>
+    </footer>
+  </body>
+</html>
