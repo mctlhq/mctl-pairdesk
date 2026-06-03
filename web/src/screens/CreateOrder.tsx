@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api.js';
-import { CurrencyPairPicker, fmtAmount, Icon, OrderCard, PD_GLYPH, PD_METHOD_LABEL, RateChip, Stepper } from '../components.js';
+import { CurrencyPairPicker, Icon, OrderCard, PD_GLYPH, PD_METHOD_LABEL, RateSlider, Stepper } from '../components.js';
 import { hasMainButton, hapticError, hapticSelection, hapticSuccess, scrollFieldIntoView, setMainButton, showBackButton } from '../tg.js';
 import { ASSETS, type Asset, PAYMENT_METHODS } from '../types.js';
 import type { Order } from '../types.js';
@@ -22,15 +22,6 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   const [opts, setOpts] = useState<OptDraft[]>(() => [{ id: 0, asset: 'RUB', max_rate: '', payment_methods: [] }]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  // tracks which give-option ids have a rate outside ±10% of the market reference.
-  // `rateViolations` is debounced (drives the button label / disabled state, so it
-  // never flashes mid-keystroke); `liveRateViolations` is real-time and only gates
-  // the Continue tap, so a fast tap can't beat the 600ms debounce past the gate.
-  const [rateViolations, setRateViolations] = useState<Record<number, boolean>>({});
-  const [liveRateViolations, setLiveRateViolations] = useState<Record<number, boolean>>({});
-  const hasRateViolation = Object.values(rateViolations).some(Boolean);
-  const hasLiveRateViolation = Object.values(liveRateViolations).some(Boolean);
-
   // Returns the one asset that is neither exclude1 nor exclude2.
   // Safe for ASSETS = ['EUR', 'RUB', 'USDT'] (three elements, two excluded at most).
   function nextFree(exclude1: Asset, exclude2: Asset): Asset {
@@ -85,8 +76,8 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
     } finally { setBusy(false); }
   }
 
-  const nextEnabled = step === 1 ? amountValid : step === 2 ? !hasRateViolation : !busy;
-  const nextText = step === 1 ? 'Continue' : step === 2 ? (hasRateViolation ? 'Fix rate to continue' : 'Continue') : (busy ? 'Publishing...' : 'Publish request');
+  const nextEnabled = step === 1 ? amountValid : step === 2 ? amountValid : !busy;
+  const nextText = step === 1 ? 'Continue' : step === 2 ? 'Continue' : (busy ? 'Publishing...' : 'Publish request');
 
   function primaryAction() {
     if (step === 1) {
@@ -96,9 +87,6 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
       return;
     }
     if (step === 2) {
-      // Gate on the real-time flag too: the button may still look enabled during
-      // the 600ms debounce, but a live violation must block the transition.
-      if (hasRateViolation || hasLiveRateViolation) { hapticError(); return; }
       hapticSelection();
       setStep(3);
       return;
@@ -198,16 +186,13 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
                         <span className="pd-asset-code">{giveAsset}</span>
                       </span>
                     </div>
-                    <span className="pd-label">Max rate <span className="pd-label-opt">· {giveAsset}/{wantAsset} · optional</span></span>
-                    <input className="pd-input pd-num" inputMode="decimal"
-                      placeholder="e.g. 99"
-                      value={o.max_rate} onChange={(e) => updateOpt(0, { max_rate: e.target.value })}
-                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
-                    <RatePreview base={wantAsset} quote={giveAsset} userRate={o.max_rate} wantAmount={wantAmount}
-                      onViolation={(settled, live) => {
-                        setRateViolations((p) => ({ ...p, [o.id]: settled }));
-                        setLiveRateViolations((p) => ({ ...p, [o.id]: live }));
-                      }} />
+                    <RateSlider
+                      base={wantAsset}
+                      quote={giveAsset}
+                      wantAmount={wantAmount}
+                      onWantAmountChange={setWantAmount}
+                      onRateResolved={(r) => updateOpt(0, { max_rate: r ?? '' })}
+                    />
                     <span className="pd-label">Payment methods</span>
                     <div className="pd-chips pd-chips-wrap" style={{ marginTop: 4 }}>
                       {PAYMENT_METHODS.map((m) => (
@@ -225,9 +210,7 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={() => setStep(1)}>Back</button>
-            {!hasMainButton() && <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={hasRateViolation} onClick={primaryAction}>
-              {hasRateViolation ? 'Fix rate to continue' : 'Continue'}
-            </button>}
+            {!hasMainButton() && <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={!amountValid} onClick={primaryAction}>Continue</button>}
           </div>
         </div>
       )}
@@ -256,92 +239,6 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
             </button>}
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-const MAX_DEVIATION_PCT = 10;
-
-// True when a typed rate sits outside ±MAX_DEVIATION_PCT of the reference.
-// Shared by the debounced (settled) and real-time (live) violation reports.
-function isRateViolation(rate: string, reference: number): boolean {
-  const r = Number.parseFloat(rate);
-  if (!(Number.isFinite(r) && r > 0)) return false;
-  return Math.abs(((r - reference) / reference) * 100) > MAX_DEVIATION_PCT;
-}
-
-function RatePreview({ base, quote, userRate, wantAmount, onViolation }: {
-  base: Asset; quote: Asset; userRate: string; wantAmount?: string;
-  // (settledViolated, liveViolated): the settled flag drives the button/message
-  // (debounced, no flash); the live flag lets the parent block the Continue tap
-  // during the 600ms debounce window without re-introducing per-keystroke churn.
-  onViolation?: (settledViolated: boolean, liveViolated: boolean) => void;
-}) {
-  const [ref, setRef] = useState<number | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
-  // Debounced copy of userRate. The violation check (red warning + the disabled
-  // Continue button) runs off this, so it only fires once the user has paused —
-  // otherwise the alarming "rate deviates" message flashes on every keystroke
-  // while the number is still being typed.
-  const [settledRate, setSettledRate] = useState(userRate);
-
-  useEffect(() => {
-    const t = setTimeout(() => setSettledRate(userRate), 600);
-    return () => clearTimeout(t);
-  }, [userRate]);
-
-  useEffect(() => {
-    let cancel = false;
-    setRef(null); setUnavailable(false);
-    // Clear any prior violation up front: the old flag belonged to the previous
-    // asset/reference. Without this it lingers (Continue stays disabled) for the
-    // whole fetch window until the new reference arrives and re-validates.
-    onViolation?.(false, false);
-    api.get<{ rate: number }>(`/rates/reference?base=${base}&quote=${quote}`)
-      .then((r) => !cancel && setRef(r.rate))
-      .catch(() => { if (!cancel) { setUnavailable(true); onViolation?.(false, false); } });
-    return () => { cancel = true; };
-  }, [base, quote]);
-
-  useEffect(() => {
-    if (ref == null || unavailable) return;
-    // settled (debounced) drives the visible message + disabled button; live
-    // (real-time) is what the parent checks at the Continue tap so a fast tap
-    // during the debounce window can't slip past the deviation gate.
-    onViolation?.(isRateViolation(settledRate, ref), isRateViolation(userRate, ref));
-  }, [ref, settledRate, userRate, unavailable]);
-
-  if (unavailable) return <p className="pd-rate-hint">Reference rate unavailable — order can still be published.</p>;
-  if (ref == null) return <p className="pd-rate-hint">Loading reference…</p>;
-
-  const ur = Number.parseFloat(userRate);
-  const has = Number.isFinite(ur) && ur > 0;
-  const delta = has ? ((ur - ref) / ref) * 100 : null;
-  // The warning text mirrors the debounced flag (settledRate), so the message and
-  // the disabled button appear together — not while the user is mid-keystroke.
-  const settled = Number.parseFloat(settledRate);
-  const settledDelta = Number.isFinite(settled) && settled > 0 ? ((settled - ref) / ref) * 100 : null;
-  const violated = settledDelta != null && Math.abs(settledDelta) > MAX_DEVIATION_PCT;
-
-  const qty = Number.parseFloat(wantAmount ?? '');
-  const total = has && Number.isFinite(qty) && qty > 0 ? qty * ur : null;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div className="pd-rate-preview">
-        <span className="pd-rate-ref">Market ref. ≈ <span className="pd-num">{fmtAmount(ref)}</span> {quote}/{base}</span>
-        {delta != null && <RateChip delta={delta.toFixed(1)} style="chip" />}
-      </div>
-      {total != null && (
-        <div style={{ fontSize: 13, color: 'var(--pd-text-2)' }}>
-          Total ≈ <span className="pd-num" style={{ fontWeight: 700 }}>{fmtAmount(total)}</span> {quote}
-        </div>
-      )}
-      {violated && (
-        <p style={{ margin: 0, fontSize: 12, color: 'var(--pd-far)', fontWeight: 600 }}>
-          Rate deviates {settledDelta! > 0 ? '+' : ''}{settledDelta!.toFixed(1)}% from market reference — maximum ±{MAX_DEVIATION_PCT}%. Adjust the rate to continue.
-        </p>
       )}
     </div>
   );
