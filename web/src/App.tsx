@@ -80,21 +80,23 @@ export function App() {
         {tab === 'create'  && <CreateOrder onCreated={(id) => setDetailOrderId(id)} />}
         {tab === 'profile' && <Profile me={me} canAdmin={canAdmin} onSaved={() => void loadMe()} onOpenOrder={setDetailOrderId} />}
       </main>
-      <nav className="pd-tabbar">
-        <button className={`pd-tab${tab === 'book' ? ' is-active' : ''}`} onClick={() => nav('book')} aria-label="Book" aria-current={tab === 'book' ? 'page' : undefined}>
-          <Icon name="book" size={20} stroke={1.6} />
-          <span className="pd-tab-label">Book</span>
-        </button>
-        <button className={`pd-tab pd-tab-fab${tab === 'create' ? ' is-active' : ''}`} onClick={() => nav('create')} aria-label="Create" aria-current={tab === 'create' ? 'page' : undefined}>
-          <span className="pd-fab-circle">
-            <Icon name="create" size={22} stroke={1.8} />
-          </span>
-        </button>
-        <button className={`pd-tab${tab === 'profile' ? ' is-active' : ''}`} onClick={() => nav('profile')} aria-label="Profile" aria-current={tab === 'profile' ? 'page' : undefined}>
-          <Icon name="user" size={20} stroke={1.6} />
-          <span className="pd-tab-label">Profile</span>
-        </button>
-      </nav>
+      {tab !== 'create' && (
+        <nav className="pd-tabbar">
+          <button className={`pd-tab${tab === 'book' ? ' is-active' : ''}`} onClick={() => nav('book')} aria-label="Book" aria-current={tab === 'book' ? 'page' : undefined}>
+            <Icon name="book" size={20} stroke={1.6} />
+            <span className="pd-tab-label">Book</span>
+          </button>
+          <button className={`pd-tab pd-tab-fab${tab === 'create' ? ' is-active' : ''}`} onClick={() => nav('create')} aria-label="Create" aria-current={tab === 'create' ? 'page' : undefined}>
+            <span className="pd-fab-circle">
+              <Icon name="create" size={22} stroke={1.8} />
+            </span>
+          </button>
+          <button className={`pd-tab${tab === 'profile' ? ' is-active' : ''}`} onClick={() => nav('profile')} aria-label="Profile" aria-current={tab === 'profile' ? 'page' : undefined}>
+            <Icon name="user" size={20} stroke={1.6} />
+            <span className="pd-tab-label">Profile</span>
+          </button>
+        </nav>
+      )}
     </div>
   );
 }
