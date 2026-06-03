@@ -280,10 +280,12 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
               </button>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={() => setStep(1)}>Back</button>
-            {!hasMainButton() && <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={!amountValid} onClick={primaryAction}>Continue</button>}
-          </div>
+          {!hasMainButton() && (
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={() => setStep(1)}>Back</button>
+              <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={!amountValid} onClick={primaryAction}>Continue</button>
+            </div>
+          )}
         </div>
       )}
 
@@ -311,12 +313,14 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
             </div>
           </div>
           {err && <p style={{ color: 'var(--pd-far)', fontSize: 13, margin: '0 0 8px' }}>{err}</p>}
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={() => setStep(2)}>Back</button>
-            {!hasMainButton() && <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={busy} onClick={primaryAction}>
-              {busy ? 'Publishing…' : 'Publish request'}
-            </button>}
-          </div>
+          {!hasMainButton() && (
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={() => setStep(2)}>Back</button>
+              <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} disabled={busy} onClick={primaryAction}>
+                {busy ? 'Publishing…' : 'Publish request'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
