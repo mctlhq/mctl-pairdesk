@@ -12,7 +12,7 @@ interface OptDraft {
   payment_methods: string[];
 }
 
-export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) {
+export function CreateOrder({ onCreated, onExit }: { onCreated: (id: number) => void; onExit: () => void }) {
   const [step, setStep] = useState(1);
   const [giveAsset, setGiveAsset] = useState<Asset>('RUB');
   const [wantAsset, setWantAsset] = useState<Asset>('EUR');
@@ -116,6 +116,12 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   const primaryActionRef = useRef(primaryAction);
   primaryActionRef.current = primaryAction;
 
+  // Hold onExit in a ref so the back-button effect can depend only on [step]
+  // (onExit is a fresh closure each parent render; without the ref it would
+  // re-register the Telegram BackButton on every keystroke).
+  const onExitRef = useRef(onExit);
+  onExitRef.current = onExit;
+
   useEffect(() => {
     return setMainButton({
       text: nextText,
@@ -126,7 +132,10 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   }, [busy, nextEnabled, nextText, step]);
 
   useEffect(() => {
-    if (step === 1) return undefined;
+    // At step 1 the Telegram back button leaves the create flow entirely — the
+    // app tab bar is hidden while creating, so this is the user's only way back
+    // to Book/Profile. Deeper steps step back one.
+    if (step === 1) return showBackButton(() => onExitRef.current());
     return showBackButton(() => setStep((s) => Math.max(1, s - 1)));
   }, [step]);
 
@@ -166,7 +175,12 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
               onSwap={handleSwap}
             />
           </div>
-          {!hasMainButton() && <button className="pd-btn-block" onClick={primaryAction}>Continue</button>}
+          {!hasMainButton() && (
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={onExit}>Cancel</button>
+              <button className="pd-btn-block" style={{ marginTop: 0, flex: 1 }} onClick={primaryAction}>Continue</button>
+            </div>
+          )}
         </div>
       )}
 

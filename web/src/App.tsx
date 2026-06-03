@@ -77,7 +77,7 @@ export function App() {
     <div className="pd-app">
       <main className="pd-content">
         {tab === 'book'    && <OrderBook onOpen={setDetailOrderId} />}
-        {tab === 'create'  && <CreateOrder onCreated={(id) => { setTab('book'); setDetailOrderId(id); }} />}
+        {tab === 'create'  && <CreateOrder onCreated={(id) => { setTab('book'); setDetailOrderId(id); }} onExit={() => setTab('book')} />}
         {tab === 'profile' && <Profile me={me} canAdmin={canAdmin} onSaved={() => void loadMe()} onOpenOrder={setDetailOrderId} />}
       </main>
       {tab !== 'create' && (
