@@ -46,7 +46,7 @@ See `CLAUDE.md` for architecture and local-dev instructions.
 
 ```bash
 npm install && npm run build:api
-DATABASE_URL=postgres://postgres:pd@localhost:5432/pairdesk DATABASE_SSL=false \
+DATABASE_URL=postgres://postgres:PASSWORD@localhost:5432/pairdesk DATABASE_SSL=false \
   AUTH_DEV_BYPASS=true SUPER_ADMIN_TELEGRAM_IDS=1000 PORT=8099 npm start
 ```
 
