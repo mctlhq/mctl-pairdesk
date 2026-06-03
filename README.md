@@ -55,4 +55,4 @@ header instead of real Mini App initData.
 
 ## License
 
-Apache-2.0.
+Apache-2.0 — see [LICENSE](LICENSE).
