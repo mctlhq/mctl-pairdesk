@@ -486,6 +486,41 @@ export function AssetSelect({
   );
 }
 
+// ---- Currency pair picker --------------------------------------------------
+interface CurrencyPairPickerProps {
+  giveAsset: Asset;
+  wantAsset: Asset;
+  onGiveChange: (a: Asset) => void;
+  onWantChange: (a: Asset) => void;
+  onSwap: () => void;
+}
+
+export function CurrencyPairPicker({
+  giveAsset,
+  wantAsset,
+  onGiveChange,
+  onWantChange,
+  onSwap,
+}: CurrencyPairPickerProps) {
+  return (
+    <div className="pd-pair-picker">
+      <div className="pd-pair-row">
+        <span className="pd-pair-row-label">I have</span>
+        <AssetSelect value={giveAsset} onChange={onGiveChange} exclude={[wantAsset]} />
+      </div>
+      <div className="pd-pair-swap-wrap">
+        <button type="button" className="pd-swap-btn" onClick={onSwap} aria-label="Swap assets">
+          <Icon name="arrowSwap" size={16} stroke={1.7} />
+        </button>
+      </div>
+      <div className="pd-pair-row">
+        <span className="pd-pair-row-label">I want to get</span>
+        <AssetSelect value={wantAsset} onChange={onWantChange} exclude={[giveAsset]} />
+      </div>
+    </div>
+  );
+}
+
 // ---- Stepper ---------------------------------------------------------------
 export function Stepper({ step, total }: { step: number; total: number }) {
   return (

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api.js';
-import { AssetSelect, fmtAmount, Icon, OrderCard, PD_GLYPH, PD_METHOD_LABEL, RateChip, Stepper } from '../components.js';
+import { CurrencyPairPicker, fmtAmount, Icon, OrderCard, PD_GLYPH, PD_METHOD_LABEL, RateChip, Stepper } from '../components.js';
 import { hasMainButton, hapticError, hapticSelection, hapticSuccess, scrollFieldIntoView, setMainButton, showBackButton } from '../tg.js';
 import { ASSETS, type Asset, PAYMENT_METHODS } from '../types.js';
 import type { Order } from '../types.js';
@@ -14,12 +14,12 @@ interface OptDraft {
 
 export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) {
   const [step, setStep] = useState(1);
+  const [giveAsset, setGiveAsset] = useState<Asset>('RUB');
   const [wantAsset, setWantAsset] = useState<Asset>('EUR');
   const [wantAmount, setWantAmount] = useState('');
   const [city, setCity] = useState('');
   const [comment, setComment] = useState('');
   const [opts, setOpts] = useState<OptDraft[]>(() => [{ id: 0, asset: 'RUB', max_rate: '', payment_methods: [] }]);
-  const optSeq = useRef(1);  // next stable give-option id
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // tracks which give-option ids have a rate outside ±10% of the market reference.
@@ -31,8 +31,29 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
   const hasRateViolation = Object.values(rateViolations).some(Boolean);
   const hasLiveRateViolation = Object.values(liveRateViolations).some(Boolean);
 
-  const availFor = (idx: number): Asset[] =>
-    ASSETS.filter((a) => a !== wantAsset && !opts.some((o, i) => i !== idx && o.asset === a));
+  // Returns the one asset that is neither exclude1 nor exclude2.
+  // Safe for ASSETS = ['EUR', 'RUB', 'USDT'] (three elements, two excluded at most).
+  function nextFree(exclude1: Asset, exclude2: Asset): Asset {
+    return ASSETS.find((a) => a !== exclude1 && a !== exclude2)!;
+  }
+
+  function handleGiveChange(a: Asset) {
+    hapticSelection();
+    setGiveAsset(a);
+    if (a === wantAsset) setWantAsset(nextFree(a, a));
+  }
+
+  function handleWantChange(a: Asset) {
+    hapticSelection();
+    setWantAsset(a);
+    if (a === giveAsset) setGiveAsset(nextFree(a, a));
+  }
+
+  function handleSwap() {
+    hapticSelection();
+    setGiveAsset(wantAsset);
+    setWantAsset(giveAsset);
+  }
 
   // No haptic here: updateOpt also backs the free-text rate input, where a buzz
   // on every keystroke is noise. Discrete callers (asset select) buzz themselves.
@@ -44,23 +65,17 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
     setOpts((prev) => prev.map((o, idx) =>
       idx === i ? { ...o, payment_methods: o.payment_methods.includes(m) ? o.payment_methods.filter((x) => x !== m) : [...o.payment_methods, m] } : o));
   }
-  function addOpt() {
-    const free = availFor(opts.length);
-    if (free.length === 0) return;
-    hapticSelection();
-    const id = optSeq.current++;
-    setOpts((p) => [...p, { id, asset: free[0]!, max_rate: '', payment_methods: [] }]);
-  }
 
   const amountValid = /^\d+(\.\d+)?$/.test(wantAmount) && Number.parseFloat(wantAmount) > 0;
 
   async function submit() {
     setBusy(true); setErr(null);
     try {
+      const o = opts[0] ?? { max_rate: '', payment_methods: [] };
       const order = await api.post<{ id: number }>('/orders', {
         want_asset: wantAsset, want_amount: wantAmount,
         location_city: city.trim() || null, comment: comment.trim() || null,
-        give_options: opts.map((o) => ({ asset: o.asset, max_rate: o.max_rate.trim() || null, payment_methods: o.payment_methods })),
+        give_options: [{ asset: giveAsset, max_rate: o.max_rate.trim() || null, payment_methods: o.payment_methods }],
       });
       hapticSuccess();
       onCreated(order.id);
@@ -115,10 +130,12 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
     id: 0, want_asset: wantAsset, want_amount: wantAmount || '0', status: 'active',
     location_city: city || null, location_country: null, comment: null,
     created_by_user_id: 0, created_at: new Date().toISOString(), expires_at: null,
-    give_options: opts.map((o, i) => ({
-      id: i, asset: o.asset, max_rate: o.max_rate || null, payment_methods: o.payment_methods,
+    give_options: [{
+      id: 0, asset: giveAsset,
+      max_rate: opts[0]?.max_rate || null,
+      payment_methods: opts[0]?.payment_methods ?? [],
       reference_rate: null, reference_source: null, delta_percent: null,
-    })),
+    }],
     maker: null,
   };
 
@@ -134,19 +151,16 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
           <div className="pd-form-section">
             <div className="pd-form-section-head">
               <span className="pd-form-n pd-num">1</span>
-              <span className="pd-form-title">I want to receive</span>
+              <span className="pd-form-title">Currency pair</span>
             </div>
-            <AssetSelect value={wantAsset} onChange={(a) => {
-              hapticSelection();
-              setWantAsset(a);
-              setOpts((prev) => prev.map((o) =>
-                o.asset !== a ? o : {
-                  ...o,
-                  asset: ASSETS.find((x) => x !== a && !prev.some((oo) => oo !== o && oo.asset === x)) ?? o.asset,
-                },
-              ));
-            }} />
-            <span className="pd-label">Amount</span>
+            <CurrencyPairPicker
+              giveAsset={giveAsset}
+              wantAsset={wantAsset}
+              onGiveChange={handleGiveChange}
+              onWantChange={handleWantChange}
+              onSwap={handleSwap}
+            />
+            <span className="pd-label">Amount <span className="pd-label-opt">· {wantAsset}</span></span>
             <label className="pd-amount-field">
               <span className="pd-amount-glyph">{PD_GLYPH[wantAsset]}</span>
               <input className="pd-input pd-input-amount pd-num" inputMode="decimal" placeholder="1000"
@@ -171,58 +185,43 @@ export function CreateOrder({ onCreated }: { onCreated: (id: number) => void }) 
           <div className="pd-form-section">
             <div className="pd-form-section-head">
               <span className="pd-form-n pd-num">2</span>
-              <span className="pd-form-title">I will give — one of these</span>
+              <span className="pd-form-title">I will give</span>
             </div>
-            <p className="pd-form-sub">Add the assets you can pay with. Rate is optional; we'll show how it compares to the market reference.</p>
             <div className="pd-give-editors">
-              {opts.map((o, i) => (
-                <div className="pd-give-editor" key={o.id}>
-                  <div className="pd-row pd-give-editor-head">
-                    <div className="pd-segmini">
-                      {[o.asset, ...availFor(i)].filter((v, idx, arr) => arr.indexOf(v) === idx).map((a) => (
-                        <button key={a} type="button"
-                          className={`pd-segmini-opt${o.asset === a ? ' is-on' : ''}`}
-                          onClick={() => { hapticSelection(); updateOpt(i, { asset: a as Asset }); }}>
-                          {a}
+              {(() => {
+                const o = opts[0] ?? { id: 0, asset: giveAsset, max_rate: '', payment_methods: [] };
+                return (
+                  <div className="pd-give-editor">
+                    <div className="pd-row pd-give-editor-head">
+                      <span className="pd-asset">
+                        <span className={`pd-glyph pd-glyph-${giveAsset} pd-glyph-sm`} aria-hidden="true">{PD_GLYPH[giveAsset]}</span>
+                        <span className="pd-asset-code">{giveAsset}</span>
+                      </span>
+                    </div>
+                    <span className="pd-label">Max rate <span className="pd-label-opt">· {giveAsset}/{wantAsset} · optional</span></span>
+                    <input className="pd-input pd-num" inputMode="decimal"
+                      placeholder="e.g. 99"
+                      value={o.max_rate} onChange={(e) => updateOpt(0, { max_rate: e.target.value })}
+                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
+                    <RatePreview base={wantAsset} quote={giveAsset} userRate={o.max_rate} wantAmount={wantAmount}
+                      onViolation={(settled, live) => {
+                        setRateViolations((p) => ({ ...p, [o.id]: settled }));
+                        setLiveRateViolations((p) => ({ ...p, [o.id]: live }));
+                      }} />
+                    <span className="pd-label">Payment methods</span>
+                    <div className="pd-chips pd-chips-wrap" style={{ marginTop: 4 }}>
+                      {PAYMENT_METHODS.map((m) => (
+                        <button key={m} type="button"
+                          className={`pd-chip pd-chip-sm${o.payment_methods.includes(m) ? ' is-on' : ''}`}
+                          onClick={() => toggleMethod(0, m)}>
+                          {PD_METHOD_LABEL[m] ?? m}
                         </button>
                       ))}
                     </div>
-                    <span className="pd-spacer" />
-                    {opts.length > 1 && <button className="pd-btn-ghost-sm" onClick={() => {
-                      setOpts((p) => p.filter((_, idx) => idx !== i));
-                      // Drop only the removed option's entry; stable ids keep the rest valid.
-                      setRateViolations((p) => { const { [o.id]: _drop, ...rest } = p; return rest; });
-                      setLiveRateViolations((p) => { const { [o.id]: _drop, ...rest } = p; return rest; });
-                    }}>Remove</button>}
                   </div>
-                  <span className="pd-label">Max rate <span className="pd-label-opt">· {o.asset}/{wantAsset} · optional</span></span>
-                  <input className="pd-input pd-num" inputMode="decimal"
-                    placeholder="e.g. 99"
-                    value={o.max_rate} onChange={(e) => updateOpt(i, { max_rate: e.target.value })}
-                    onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
-                  <RatePreview base={wantAsset} quote={o.asset} userRate={o.max_rate} wantAmount={wantAmount}
-                    onViolation={(settled, live) => {
-                      setRateViolations((p) => ({ ...p, [o.id]: settled }));
-                      setLiveRateViolations((p) => ({ ...p, [o.id]: live }));
-                    }} />
-                  <span className="pd-label">Payment methods</span>
-                  <div className="pd-chips pd-chips-wrap" style={{ marginTop: 4 }}>
-                    {PAYMENT_METHODS.map((m) => (
-                      <button key={m} type="button"
-                        className={`pd-chip pd-chip-sm${o.payment_methods.includes(m) ? ' is-on' : ''}`}
-                        onClick={() => toggleMethod(i, m)}>
-                        {PD_METHOD_LABEL[m] ?? m}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })()}
             </div>
-            {opts.length < ASSETS.length - 1 && (
-              <button className="pd-add-alt" onClick={addOpt}>
-                <Icon name="plus" size={16} stroke={2} />Add alternative
-              </button>
-            )}
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="pd-btn-ghost-sm" style={{ flex: '0 0 auto' }} onClick={() => setStep(1)}>Back</button>

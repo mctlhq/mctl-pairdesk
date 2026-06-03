@@ -1051,6 +1051,54 @@ textarea.pd-input { resize: vertical; min-height: 64px; }
   margin-top: 4px;
 }
 
+/* Currency-pair picker */
+.pd-pair-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 4px;
+}
+.pd-pair-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--pd-surface);
+  border-radius: var(--pd-radius-sm);
+}
+.pd-pair-row-label {
+  font-size: var(--pd-fs-meta);
+  font-weight: 600;
+  color: var(--pd-hint);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.pd-pair-swap-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: -1px 0;
+  position: relative;
+  z-index: 1;
+}
+.pd-swap-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--pd-border);
+  background: var(--pd-card-bg);
+  color: var(--pd-hint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background .12s, color .12s, transform .15s;
+}
+.pd-swap-btn:active {
+  transform: rotate(180deg);
+  color: var(--pd-accent-eff);
+}
+
 /* Stepper */
 .pd-stepper { display: flex; align-items: center; gap: 7px; }
 .pd-stepdot {
