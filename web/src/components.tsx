@@ -616,16 +616,38 @@ export function RateSlider({ base, quote, wantAmount, onWantAmountChange, onRate
   }, [wantAmount]);
 
   if (unavailable) {
+    // No reference rate: fall back to a free-text rate, but still expose the
+    // want-amount input so the form can be completed (the "Continue" button is
+    // gated on a valid want-amount). Without the amount field here the user
+    // could never advance past step 2 whenever /rates/reference is down.
     return (
       <div className="pd-rate-slider">
-        <input
-          className="pd-input pd-num"
-          inputMode="decimal"
-          placeholder="e.g. 99"
-          onChange={(e) => onRateResolved(e.target.value || null)}
-          onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
-        />
-        <p className="pd-rate-hint">Reference rate unavailable — order can still be published</p>
+        <div className="pd-dual-amounts">
+          <label className="pd-amount-field">
+            <span className="pd-amount-glyph">{PD_GLYPH[base]}</span>
+            <input
+              className="pd-input pd-input-amount pd-num"
+              inputMode="decimal"
+              placeholder="0"
+              value={wantAmount}
+              onChange={(e) => onWantAmountChange(e.target.value)}
+              onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+            />
+            <span className="pd-amount-code">{base}</span>
+          </label>
+          <label className="pd-amount-field">
+            <span className="pd-amount-glyph">{PD_GLYPH[quote]}</span>
+            <input
+              className="pd-input pd-input-amount pd-num"
+              inputMode="decimal"
+              placeholder="rate"
+              onChange={(e) => onRateResolved(e.target.value || null)}
+              onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+            />
+            <span className="pd-amount-code">{quote}/{base}</span>
+          </label>
+        </div>
+        <p className="pd-rate-hint">Reference rate unavailable — enter a rate; order can still be published</p>
       </div>
     );
   }
