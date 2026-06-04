@@ -19,6 +19,7 @@ export function CreateOrder({ onCreated, onExit }: { onCreated: (id: number) => 
   const [wantAmount, setWantAmount] = useState('');
   const [city, setCity] = useState('');
   const [comment, setComment] = useState('');
+  const [ttlHours, setTtlHours] = useState(72);
   const [opts, setOpts] = useState<OptDraft[]>(() => [{ id: 0, asset: 'RUB', max_rate: '', payment_methods: [] }]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -75,6 +76,7 @@ export function CreateOrder({ onCreated, onExit }: { onCreated: (id: number) => 
       const order = await api.post<{ id: number }>('/orders', {
         want_asset: wantAsset, want_amount: wantAmount,
         location_city: city.trim() || null, comment: comment.trim() || null,
+        expires_in_seconds: ttlHours * 3600,
         give_options: opts.map((o) => ({
           asset: o.asset,
           max_rate: o.max_rate.trim() || null,
@@ -236,6 +238,16 @@ export function CreateOrder({ onCreated, onExit }: { onCreated: (id: number) => 
                 onChange={(e) => setCity(e.target.value)}
                 onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
             </label>
+            <span className="pd-label">Expires in</span>
+            <div className="pd-chips pd-chips-wrap" style={{ marginTop: 4 }}>
+              {[{ h: 6, l: '6 hours' }, { h: 24, l: '24 hours' }, { h: 72, l: '72 hours' }].map((o) => (
+                <button key={o.h} type="button"
+                  className={`pd-chip pd-chip-sm${ttlHours === o.h ? ' is-on' : ''}`}
+                  onClick={() => { hapticSelection(); setTtlHours(o.h); }}>
+                  {o.l}
+                </button>
+              ))}
+            </div>
             <span className="pd-label">Notes <span className="pd-label-opt">· optional</span></span>
             <p className="pd-form-sub">Anything that helps a counterparty — timing, area, preferences.</p>
             <textarea className="pd-input" inputMode="text" placeholder="e.g. can meet near the marina this evening"
