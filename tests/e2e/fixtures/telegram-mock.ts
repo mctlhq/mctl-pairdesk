@@ -85,6 +85,11 @@ export function telegramMockScript(initData: string): string {
           return true;
         },
         disableVerticalSwipes: noop,
+        // Auto-confirm so confirmAction() proceeds in tests (the app uses showConfirm
+        // for destructive actions; a real user taps "OK").
+        showConfirm(_message: string, callback: (ok: boolean) => void) {
+          callback(true);
+        },
         ready: noop,
         expand: noop,
         onEvent: noop,
