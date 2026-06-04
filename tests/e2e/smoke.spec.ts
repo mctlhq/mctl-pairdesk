@@ -89,7 +89,9 @@ test('full lifecycle: create → book → respond → accept → complete', asyn
   await openFromBook(b, city);
   await waitMainButton(b, /Respond to order/);
   await clickMainButton(b);
-  await expect(b.getByText('Response sent')).toBeVisible();
+  // Exact match: the status-card title is "Response sent"; the transient toast
+  // ("Response sent — the maker will review it.") also contains the phrase.
+  await expect(b.getByText('Response sent', { exact: true })).toBeVisible();
 
   // A refreshes, opens the order, accepts B's response.
   await a.reload();
