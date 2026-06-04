@@ -11,6 +11,7 @@ interface TgWebApp {
   contentSafeAreaInset?: Partial<Record<'top' | 'bottom' | 'left' | 'right', number>>;
   isVersionAtLeast?(version: string): boolean;
   disableVerticalSwipes?(): void;
+  showConfirm?(message: string, callback: (ok: boolean) => void): void;
   ready(): void;
   expand(): void;
   onEvent?(eventType: string, cb: () => void): void;
@@ -270,6 +271,21 @@ export function setMainButton({
 // object exists", which is also true in a plain browser where no button shows.
 export function hasMainButton(): boolean {
   return isTelegram;
+}
+
+// Native confirmation for destructive / binding actions (cancel an order, accept a
+// response). Resolves true only when the user confirms. Uses Telegram's showConfirm
+// (Bot API 6.2+; guarded via typeof) inside Telegram, falls back to window.confirm in
+// a plain browser, and — only if neither exists (very old client) — proceeds rather
+// than dead-ending the action.
+export function confirmAction(message: string): Promise<boolean> {
+  if (isTelegram && typeof wa?.showConfirm === 'function') {
+    return new Promise((resolve) => wa!.showConfirm!(message, (ok) => resolve(Boolean(ok))));
+  }
+  if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+    return Promise.resolve(window.confirm(message));
+  }
+  return Promise.resolve(true);
 }
 
 export function hapticSelection(): void {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api.js';
 import { Badge, fmtAmount, GiveRow, Icon, Maker, PD_GLYPH } from '../components.js';
-import { hasMainButton, hapticError, hapticSuccess, setMainButton, showBackButton } from '../tg.js';
+import { confirmAction, hasMainButton, hapticError, hapticSuccess, setMainButton, showBackButton } from '../tg.js';
 import type { Deal, Me, Order } from '../types.js';
 
 export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; onBack: () => void }) {
@@ -197,7 +197,11 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
                 {d.status === 'requested' && order.status === 'active' ? (
                   <span className="pd-resp-actions">
                     <button className="pd-btn-ghost-sm" disabled={busy} onClick={() => void run(() => api.post(`/deals/${d.id}/reject`), 'Rejected.')}>Reject</button>
-                    <button className="pd-btn-accent-sm" disabled={busy} onClick={() => void run(() => api.post(`/deals/${d.id}/accept`), 'Accepted — contacts shared.')}>Accept</button>
+                    <button className="pd-btn-accent-sm" disabled={busy} onClick={() => void (async () => {
+                      if (await confirmAction(`Accept ${rLabel}? Contact details will be shared with them and all other responses declined.`)) {
+                        await run(() => api.post(`/deals/${d.id}/accept`), 'Accepted — contacts shared.');
+                      }
+                    })()}>Accept</button>
                   </span>
                 ) : <Badge status={d.status} />}
               </div>
@@ -209,7 +213,11 @@ export function OrderDetail({ orderId, me, onBack }: { orderId: number; me: Me; 
           )}
           {['active', 'reserved'].includes(order.status) && (
             <button className="pd-btn-ghost-sm" style={{ width: '100%', marginTop: 16, justifyContent: 'center' }}
-              disabled={busy} onClick={() => void run(() => api.post(`/orders/${order.id}/cancel`), 'Order cancelled.')}>
+              disabled={busy} onClick={() => void (async () => {
+                if (await confirmAction('Cancel this order? Any pending responses will be declined. This cannot be undone.')) {
+                  await run(() => api.post(`/orders/${order.id}/cancel`), 'Order cancelled.');
+                }
+              })()}>
               Cancel order
             </button>
           )}
