@@ -7,4 +7,11 @@ landing/dist/
 *.log
 .env
 .env.*
+!.env.example
 .DS_Store
+
+# Playwright e2e harness
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright/
