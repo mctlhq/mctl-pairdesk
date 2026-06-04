@@ -14,8 +14,11 @@ export function telegramMockScript(initData: string): string {
     const noop = function () {};
     const main = { text: '', visible: false, active: true, progress: false };
     const back = { visible: false };
-    let mainCb: (() => void) | null = null;
-    let backCb: (() => void) | null = null;
+    // Real Telegram registers listeners additively (onClick stacks, offClick removes
+    // the specific one), so mirror that with a Set rather than a single slot — a future
+    // screen that stacks handlers then surfaces here instead of being silently hidden.
+    const mainCbs = new Set<() => void>();
+    const backCbs = new Set<() => void>();
 
     const MainButton = {
       setText(t: string) {
@@ -39,10 +42,10 @@ export function telegramMockScript(initData: string): string {
         main.active = false;
       },
       onClick(cb: () => void) {
-        mainCb = cb;
+        mainCbs.add(cb);
       },
       offClick(cb: () => void) {
-        if (mainCb === cb) mainCb = null;
+        mainCbs.delete(cb);
       },
       showProgress() {
         main.progress = true;
@@ -60,10 +63,10 @@ export function telegramMockScript(initData: string): string {
         back.visible = false;
       },
       onClick(cb: () => void) {
-        backCb = cb;
+        backCbs.add(cb);
       },
       offClick(cb: () => void) {
-        if (backCb === cb) backCb = null;
+        backCbs.delete(cb);
       },
     };
 
@@ -100,10 +103,10 @@ export function telegramMockScript(initData: string): string {
       main,
       back,
       clickMain() {
-        if (mainCb && main.visible && main.active) mainCb();
+        if (main.visible && main.active) mainCbs.forEach((cb) => cb());
       },
       clickBack() {
-        if (backCb) backCb();
+        backCbs.forEach((cb) => cb());
       },
     };
   }

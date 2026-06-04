@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openApp, clickMainButton, mainButtonState } from './helpers/context.js';
-import { USER_A, USER_B } from './fixtures/users.js';
+import { openApp, clickMainButton, mainButtonState, apiAs } from './helpers/context.js';
+import { USER_A, USER_B, USER_C } from './fixtures/users.js';
 
 // End-to-end smoke proving the Mini App is repeatably testable OUTSIDE Telegram:
 // a signed-initData fixture + a stubbed WebApp SDK drive the real React app against
@@ -13,15 +13,14 @@ import { USER_A, USER_B } from './fixtures/users.js';
 const DISCLAIMER = /I understand and agree/;
 
 async function passDisclaimer(page: Page): Promise<void> {
-  // The disclaimer only shows the first time a user opens the app; on later runs/tests
-  // the same user already accepted it, so tolerate its absence and just reach the Book.
+  // Acceptance is stored server-side (users.disclaimer_accepted_at), so a first-time user
+  // sees the disclaimer while a returning one goes straight to the Book. Wait for whichever
+  // appears (no fixed delay), accept if present, then confirm we reached the Book.
   const agree = page.getByRole('button', { name: DISCLAIMER });
-  if (await agree.isVisible().catch(() => false)) {
-    await agree.click();
-  } else {
-    await agree.waitFor({ timeout: 4000 }).then(() => agree.click()).catch(() => undefined);
-  }
-  await expect(page.getByRole('button', { name: 'Book', exact: true })).toBeVisible();
+  const book = page.getByRole('button', { name: 'Book', exact: true });
+  await expect(agree.or(book)).toBeVisible();
+  if (await agree.isVisible()) await agree.click();
+  await expect(book).toBeVisible();
 }
 
 /** The order-status badge in the detail hero (scoped so deal/response badges don't clash). */
@@ -104,11 +103,11 @@ test('full lifecycle: create → book → respond → accept → complete', asyn
   await clickMainButton(a);
   await expect(orderStatus(a, 'completed')).toBeVisible();
 
-  // B's side reflects the completed deal too.
+  // A completed order leaves the active book — assert its absence positively (fast),
+  // rather than waiting out a swallowed open-timeout.
   await b.reload();
-  await openFromBook(b, city).catch(() => {
-    /* completed orders leave the active book — that's expected; verified on A's side */
-  });
+  await b.getByRole('button', { name: 'Book', exact: true }).click();
+  await expect(b.locator('.pd-card', { hasText: city })).toHaveCount(0);
 
   await a.context().close();
   await b.context().close();
@@ -128,4 +127,30 @@ test('maker can cancel an active order', async ({ browser }) => {
   await expect(orderStatus(a, 'cancelled')).toBeVisible();
 
   await a.context().close();
+});
+
+test('closed community: a non-member stays pending until an admin approves', async ({ browser }) => {
+  // C is not a super-admin → lands pending after accepting the disclaimer.
+  const c = await openApp(browser, USER_C);
+  await c.getByRole('button', { name: DISCLAIMER }).click();
+  await expect(c.getByText('Awaiting approval')).toBeVisible();
+  // No Book access while pending.
+  await expect(c.getByRole('button', { name: 'Book', exact: true })).toHaveCount(0);
+
+  // Admin A approves C through the real, role-gated admin endpoints (the production
+  // path is a bot callback, not an in-app screen — so this step is API, not UI).
+  const admin = await openApp(browser, USER_A);
+  await passDisclaimer(admin);
+  const adminApi = apiAs(admin, USER_A);
+  const pending = await (await adminApi.get('/admin/users/pending')).json();
+  const row = pending.users.find((u: { username?: string }) => u.username === USER_C.username);
+  expect(row, 'C should appear in the pending list').toBeTruthy();
+  expect((await adminApi.post(`/admin/users/${row.id}/approve`)).ok()).toBeTruthy();
+
+  // C now has access.
+  await c.reload();
+  await expect(c.getByRole('button', { name: 'Book', exact: true })).toBeVisible();
+
+  await c.context().close();
+  await admin.context().close();
 });

@@ -38,3 +38,17 @@ export async function mainButtonState(page: Page): Promise<{ text: string; visib
     () => (window as unknown as { __tg: { main: { text: string; visible: boolean; active: boolean } } }).__tg.main,
   );
 }
+
+/**
+ * Authenticated API client for a user, signed with the same throwaway token. Used for
+ * out-of-band steps that aren't part of the Mini App UI under test — e.g. an admin
+ * approving a pending member (the real flow is a bot callback, not an in-app screen).
+ */
+export function apiAs(page: Page, user: TestUser) {
+  const headers = { 'x-telegram-init-data': signInitData(user, BOT_TOKEN), 'content-type': 'application/json' };
+  const base = `${BASE_URL}/api`;
+  return {
+    get: (path: string) => page.request.get(base + path, { headers }),
+    post: (path: string, data: unknown = {}) => page.request.post(base + path, { headers, data }),
+  };
+}
