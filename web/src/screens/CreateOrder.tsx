@@ -239,10 +239,10 @@ export function CreateOrder({ onCreated, onExit }: { onCreated: (id: number) => 
                 onFocus={(e) => scrollFieldIntoView(e.currentTarget)} />
             </label>
             <span className="pd-label">Expires in</span>
-            <div className="pd-chips pd-chips-wrap" style={{ marginTop: 4 }}>
-              {[{ h: 6, l: '6 hours' }, { h: 24, l: '24 hours' }, { h: 72, l: '72 hours' }].map((o) => (
-                <button key={o.h} type="button"
-                  className={`pd-chip pd-chip-sm${ttlHours === o.h ? ' is-on' : ''}`}
+            <div className="pd-segment" role="radiogroup" aria-label="Order lifetime" style={{ marginTop: 4 }}>
+              {[{ h: 6, l: '6 hours' }, { h: 24, l: '24 hours' }, { h: 72, l: '3 days' }, { h: 168, l: '7 days' }].map((o) => (
+                <button key={o.h} type="button" role="radio" aria-checked={ttlHours === o.h}
+                  className={`pd-segment-opt${ttlHours === o.h ? ' is-on' : ''}`}
                   onClick={() => { hapticSelection(); setTtlHours(o.h); }}>
                   {o.l}
                 </button>
