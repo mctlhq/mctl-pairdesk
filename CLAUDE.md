@@ -64,3 +64,37 @@ DATABASE_URL=postgres://... DATABASE_SSL=false AUTH_DEV_BYPASS=true \
 - Conventional commits; semver tags **without** `v` prefix. No emoji. No `Co-Authored-By`.
 - **Never commit to `main`** — feature branch → PR → CI green → merge commit (not squash).
 - Secrets via Vault + base-service ExternalSecret; never hardcoded.
+
+## Deploy & verify (labs == prod)
+There is no separate prod tenant — "ship to prod" means a `labs` deploy
+(`labs-mctl-pairdesk.mctl.ai`).
+
+**Release a new version:**
+1. Create a semver tag (NO `v` prefix) on the `main` HEAD you want to ship.
+2. Deploy, **always passing `dockerfile_repo`**:
+   ```
+   mctl_deploy_service action=deploy team_name=labs component_name=mctl-pairdesk \
+     component_type=base-service git_tag=X.Y.Z \
+     dockerfile_repo=mctlhq/mctl-pairdesk dockerfile_path=Dockerfile port=8080
+   ```
+   > **Footgun:** omit `dockerfile_repo` and the workflow's `build-image` step is
+   > silently **Skipped** — gitops still bumps `image.tag` to a tag whose image was
+   > never built, so the new pod lands in **ImagePullBackOff** while the old
+   > ReplicaSet keeps serving. The deploy reports success; the breakage is silent.
+   > `git_tag` must already exist as a ref in this repo (tag first, then deploy).
+
+**Confirm the deploy actually landed:**
+- `mctl_get_workflow_status <wf>` → `build-image` must be **Running/Succeeded**, NOT
+  `Skipped`; then ArgoCD Health must reach **Healthy**, not stick on `Progressing`.
+- Confirm the live bundle: `curl .../app/` → grep the hashed `/app/assets/index-*.js`
+  for your change (the JS hash also tells you the new build shipped).
+- A stuck rollout shows as a new ReplicaSet pod in `imagepullbackoff` + no matching
+  GHCR tag — that's the missing-image footgun above.
+
+**Verify Mini App logic (the Telegram iframe can't be clicked):**
+the Mini App runs in a cross-origin iframe, so Chrome-extension clicks on the form
+are no-ops. To prove backend behaviour, drive the **real service functions** against a
+throwaway Postgres (`scripts/test-db.sh` + compiled `dist/`), as
+`tests/integration/expiry.test.mjs` does (`npm run test:expiry`). E.g. the expiry
+picker is verified by calling `createOrder({ expires_in_seconds })` and asserting the
+persisted `expires_at = created_at + ttl`.
