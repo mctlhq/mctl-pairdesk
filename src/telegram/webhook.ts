@@ -170,5 +170,10 @@ async function handleCallback(cq: TgCallbackQuery): Promise<void> {
   } catch (err) {
     const msg = err instanceof AppError ? err.message : 'Action failed';
     await answerCallback(cq.id, msg);
+    // Remove inline keyboard on already-handled deals to prevent stale buttons
+    if (err instanceof AppError && err.status === 409 && chatId != null && messageId != null) {
+      const terminal = action === 'accept_deal' ? '✅ Already accepted.' : action === 'reject_deal' ? '🚫 Already declined.' : `Already handled.`;
+      await editMessageText(chatId, messageId, terminal);
+    }
   }
 }
