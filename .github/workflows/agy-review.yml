@@ -1,0 +1,17 @@
+name: Agy PR review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions: {}
+
+jobs:
+  agy-review:
+    uses: mctlhq/.github/.github/workflows/agy-review.yml@main
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      conventions: |
+        Focus on: PostgreSQL transaction & row-locking concurrency (`FOR NO KEY UPDATE` + `withTransaction`), contact & PII data serialization security in `serializers.ts`, Telegram initData HMAC verification, audit log record accuracy, Express error handling (`AppError`), and integration test coverage.
