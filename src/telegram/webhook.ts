@@ -170,5 +170,30 @@ async function handleCallback(cq: TgCallbackQuery): Promise<void> {
   } catch (err) {
     const msg = err instanceof AppError ? err.message : 'Action failed';
     await answerCallback(cq.id, msg);
+    // 409 means the deal (or its order) is no longer in a state this button can
+    // act on: already accepted/rejected, or the order was cancelled/reserved
+    // meanwhile. Leaving the keyboard up invites more clicks that can only 409
+    // again (#50), so replace the message with a terminal text — the same
+    // thing the approve_user/reject_user guard above does.
+    //
+    // The text is the 409's own message, not a guess from `action`: a 409 on
+    // accept_deal can be `deal is rejected` or `order is cancelled`, and only
+    // the error knows which. These messages are server-composed (deals.ts),
+    // contain no user input, and the existing guard already puts one through
+    // parse_mode HTML the same way.
+    //
+    // "Closed", not "Already handled": the order-state 409 (`order is expired,
+    // cannot accept`) fires while the deal is still `requested`, so nothing was
+    // handled — the order just went away underneath it. "Closed" is true for
+    // every 409 shape without asserting an action that did not happen.
+    //
+    // A second stale click racing this one makes Telegram answer the edit with
+    // 400 "message is not modified". That is harmless: tgApi warns and returns
+    // null on any non-ok response rather than throwing, and handleUpdate
+    // catches whatever escapes a handler, so the webhook always 2xxs and
+    // Telegram never retries.
+    if (err instanceof AppError && err.status === 409 && chatId != null && messageId != null) {
+      await editMessageText(chatId, messageId, `Closed — ${msg}.`);
+    }
   }
 }
