@@ -181,8 +181,19 @@ async function handleCallback(cq: TgCallbackQuery): Promise<void> {
     // the error knows which. These messages are server-composed (deals.ts),
     // contain no user input, and the existing guard already puts one through
     // parse_mode HTML the same way.
+    //
+    // "Closed", not "Already handled": the order-state 409 (`order is expired,
+    // cannot accept`) fires while the deal is still `requested`, so nothing was
+    // handled — the order just went away underneath it. "Closed" is true for
+    // every 409 shape without asserting an action that did not happen.
+    //
+    // A second stale click racing this one makes Telegram answer the edit with
+    // 400 "message is not modified". That is harmless: tgApi warns and returns
+    // null on any non-ok response rather than throwing, and handleUpdate
+    // catches whatever escapes a handler, so the webhook always 2xxs and
+    // Telegram never retries.
     if (err instanceof AppError && err.status === 409 && chatId != null && messageId != null) {
-      await editMessageText(chatId, messageId, `Already handled — ${msg}.`);
+      await editMessageText(chatId, messageId, `Closed — ${msg}.`);
     }
   }
 }
