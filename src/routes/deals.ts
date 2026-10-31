@@ -25,7 +25,7 @@ dealsRouter.get('/deals/:id', async (req, res, next) => {
 });
 
 function action(handler: (ctx: ReturnType<typeof getCtx>, id: number) => Promise<void>) {
-  return async (req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) => {
+  return async (req: import('express').Request<{ id: string }>, res: import('express').Response, next: import('express').NextFunction) => {
     try {
       const id = Number.parseInt(req.params.id ?? '', 10);
       if (!Number.isFinite(id)) return res.status(400).json({ error: 'bad deal id' });

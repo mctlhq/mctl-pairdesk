@@ -39,7 +39,7 @@ adminRouter.get('/users', async (req, res, next) => {
 
 /** Transition a target user's status via the shared moderation service (RBAC +
  * audit + notify live there, so the bot's approve/reject buttons behave identically). */
-async function setStatus(req: import('express').Request, res: import('express').Response, next: import('express').NextFunction, status: 'approved' | 'rejected' | 'blocked', notifyText?: string): Promise<void> {
+async function setStatus(req: import('express').Request<{ id: string }>, res: import('express').Response, next: import('express').NextFunction, status: 'approved' | 'rejected' | 'blocked', notifyText?: string): Promise<void> {
   try {
     const id = Number.parseInt(req.params.id ?? '', 10);
     if (!Number.isFinite(id)) {
