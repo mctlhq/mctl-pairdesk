@@ -20,7 +20,8 @@
     "test:db:down": "bash scripts/test-db.sh down",
     "test:e2e": "npm run test:db:up && playwright test",
     "test:e2e:ui": "npm run test:db:up && playwright test --ui",
-    "test:expiry": "npm run test:db:up && npm run build:api && node --test tests/integration/expiry.test.mjs"
+    "test:expiry": "npm run test:db:up && npm run build:api && node --test tests/integration/expiry.test.mjs",
+    "test:routing": "npm run build:api && node --test tests/integration/routing.test.mjs"
   },
   "dependencies": {
     "express": "^4.21.2",

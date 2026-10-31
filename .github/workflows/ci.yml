@@ -20,6 +20,8 @@ jobs:
       - run: npm ci
       - run: npm run type-check
       - run: npm run build:api
+      - name: routing test
+        run: node --test tests/integration/routing.test.mjs
 
   landing:
     name: landing build & type-check
