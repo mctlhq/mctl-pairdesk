@@ -24,12 +24,12 @@
     "test:routing": "npm run build:api && node --test tests/integration/routing.test.mjs"
   },
   "dependencies": {
-    "express": "^4.21.2",
+    "express": "^5.3.0",
     "pg": "^8.23.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
-    "@types/express": "^4.17.21",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.10.0",
     "@types/pg": "^8.23.1",
     "typescript": "^7.0.2"

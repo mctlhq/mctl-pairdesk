@@ -63,8 +63,12 @@ export function createApp({ publicDir = PUBLIC_DIR }: { publicDir?: string } = {
   app.use(express.static(publicDir));
 
   // ---- Mini App SPA fallback ----
-  app.get(['/app', '/app/*', '/admin', '/admin/*', '/docs', '/docs/*'], (_req, res) => {
-    res.sendFile(resolve(publicDir, 'app', 'index.html'), (err) => {
+  // `{/*splat}` matches the bare path, a trailing slash and anything below it
+  // (path-to-regexp 8 rejects a bare `*`). The file is sent relative to `root`
+  // because send 1.x ignores dotfiles in every segment of an absolute path, which
+  // would 404 a checkout under a dot-directory such as ~/.worktrees.
+  app.get(['/app{/*splat}', '/admin{/*splat}', '/docs{/*splat}'], (_req, res) => {
+    res.sendFile('app/index.html', { root: publicDir }, (err) => {
       if (err && !res.headersSent) res.status(404).json({ error: 'mini app not built' });
     });
   });
