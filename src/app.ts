@@ -23,6 +23,14 @@ const PUBLIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'publi
 export function createApp({ publicDir = PUBLIC_DIR }: { publicDir?: string } = {}): Express {
   const app = express();
   app.disable('x-powered-by');
+  // PairDesk is a closed community app, so nothing on this host belongs in search
+  // results. A header rather than a <meta> tag covers the landing page, the Mini App
+  // and every API or error response with one rule. robots.txt must keep allowing
+  // crawling: a crawler that cannot fetch a page never sees this header.
+  app.use((_req, res, next) => {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    next();
+  });
   app.use(express.json({ limit: '64kb' }));
 
   // ---- liveness / readiness / metrics ----

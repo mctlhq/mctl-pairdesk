@@ -210,3 +210,11 @@ test('dist/server.js exits non-zero when its port is taken', { timeout: 30_000 }
   assert.equal(await srv.exited, 1, srv.output());
   assert.match(srv.output(), /EADDRINUSE/);
 });
+
+test('every response tells crawlers not to index the host', async () => {
+  for (const path of ['/', '/app', '/app/assets/index.js', '/healthz', '/api/nope', '/nope']) {
+    const res = await fetch(`${built}${path}`);
+    await res.arrayBuffer();
+    assert.equal(res.headers.get('x-robots-tag'), 'noindex, nofollow', path);
+  }
+});
