@@ -5,6 +5,7 @@ import type { Express, NextFunction, Request, Response } from 'express';
 import { config } from './config.js';
 import { pool } from './db/pool.js';
 import { requireAuth } from './middleware/auth.js';
+import { apiIpLimiter, apiUserLimiter } from './middleware/rateLimit.js';
 import { adminRouter } from './routes/admin.js';
 import { webhookRouter } from './routes/webhook.js';
 import { dealsRouter } from './routes/deals.js';
@@ -23,6 +24,9 @@ const PUBLIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'publi
 export function createApp({ publicDir = PUBLIC_DIR }: { publicDir?: string } = {}): Express {
   const app = express();
   app.disable('x-powered-by');
+  // Behind the platform ingress: without this req.ip is the ingress, and every
+  // client would share one rate-limit bucket. Hop count comes from TRUST_PROXY.
+  app.set('trust proxy', config.trustProxy);
   // PairDesk is a closed community app, so nothing on this host belongs in search
   // results. A header rather than a <meta> tag covers the landing page, the Mini App
   // and every API or error response with one rule. robots.txt must keep allowing
@@ -57,8 +61,12 @@ export function createApp({ publicDir = PUBLIC_DIR }: { publicDir?: string } = {
   app.use('/', webhookRouter);
 
   // ---- API (all routes require Telegram auth; per-router approval/role gates) ----
+  // Rate limits: IP-keyed before auth (shields the initData check + user upsert),
+  // user-keyed after it. Probes, /metrics and static assets are deliberately unlimited.
   const api = express.Router();
+  api.use(apiIpLimiter);
   api.use(requireAuth());
+  api.use(apiUserLimiter);
   api.use('/', meRouter); // reachable by pending users
   api.use('/', ordersRouter);
   api.use('/', dealsRouter);

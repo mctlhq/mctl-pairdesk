@@ -14,6 +14,15 @@ function listEnv(name: string): string[] {
     .filter(Boolean);
 }
 
+function trustProxyEnv(name: string, def: number): number | boolean | string {
+  const raw = process.env[name]?.trim();
+  if (!raw) return def;
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  if (/^\d+$/.test(raw)) return Number.parseInt(raw, 10);
+  return raw; // e.g. "loopback, 10.0.0.0/8" — passed through to Express
+}
+
 export const config = {
   port: intEnv('PORT', 8080),
   appEnv: process.env.APP_ENV ?? 'development',
@@ -58,6 +67,21 @@ export const config = {
   // flag can never open an auth bypass in prod.
   authDevBypass:
     process.env.AUTH_DEV_BYPASS === 'true' && (process.env.APP_ENV ?? 'development') !== 'production',
+
+  // Reverse-proxy hops to trust for req.ip (X-Forwarded-For). The platform
+  // ingress puts exactly one proxy in front of the pod, hence the default of 1.
+  // Accepts a hop count, true/false, or an Express trust-proxy string.
+  trustProxy: trustProxyEnv('TRUST_PROXY', 1),
+
+  // In-memory rate limits (per replica, fixed window of RATE_LIMIT_WINDOW_SECONDS).
+  rateLimitWindowMs: intEnv('RATE_LIMIT_WINDOW_SECONDS', 60) * 1000,
+  // /api, pre-auth, keyed by client IP (shared NAT / mobile carriers => generous).
+  rateLimitApiIpMax: intEnv('RATE_LIMIT_API_IP_MAX', 600),
+  // /api, post-auth, keyed by the authenticated user.
+  rateLimitApiUserMax: intEnv('RATE_LIMIT_API_USER_MAX', 240),
+  // Telegram webhook, keyed by IP. Telegram sends from a few fixed addresses, so
+  // this is a flood backstop, not a per-user limit.
+  rateLimitWebhookMax: intEnv('RATE_LIMIT_WEBHOOK_MAX', 3000),
 } as const;
 
 export function isSuperAdmin(telegramId: string | number): boolean {
