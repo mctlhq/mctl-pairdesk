@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import type { Request, RequestHandler, Response } from 'express';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { config } from '../config.js';
@@ -16,8 +17,22 @@ const common = {
   },
 };
 
+/**
+ * CF-Connecting-IP, when TRUST_CF_CONNECTING_IP is on and the header is exactly one
+ * valid IP address (no lists, no junk). Otherwise undefined.
+ */
+function cfConnectingIp(req: Request): string | undefined {
+  if (!config.trustCfConnectingIp) return undefined;
+  const raw = req.headers['cf-connecting-ip'];
+  if (typeof raw !== 'string') return undefined; // absent, or repeated (array)
+  const value = raw.trim();
+  return isIP(value) !== 0 ? value : undefined;
+}
+
 function clientIp(req: Request): string {
-  return ipKeyGenerator(req.ip ?? 'unknown');
+  const address = cfConnectingIp(req) ?? req.ip;
+  if (!address) return 'unknown'; // no resolvable address: one shared bucket, never a crash
+  return ipKeyGenerator(address);
 }
 
 /** Per authenticated user, falling back to the client IP when no user is attached. */
