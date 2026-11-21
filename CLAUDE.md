@@ -61,7 +61,17 @@ DATABASE_URL=postgres://... DATABASE_SSL=false AUTH_DEV_BYPASS=true \
   `PORT` (default 8080), `AUTH_DEV_BYPASS` (dev only; hard-off when `APP_ENV=production`).
 - Rate limiting (in-memory, per replica, single-replica assumption): `TRUST_PROXY` (default 1 hop),
   `RATE_LIMIT_WINDOW_SECONDS` (60), `RATE_LIMIT_API_IP_MAX` (600), `RATE_LIMIT_API_USER_MAX` (240),
-  `RATE_LIMIT_WEBHOOK_MAX` (3000). Probes, `/metrics` and static assets are unlimited.
+  `RATE_LIMIT_WEBHOOK_MAX` (3000); values are clamped to >= 1. Probes, `/metrics` and static assets
+  are unlimited.
+- `TRUST_CF_CONNECTING_IP` (default `false`; only the literal `true` enables). Behind Cloudflare,
+  Traefik's websecure entrypoint trusts only `127.0.0.1/32,10.0.0.0/8` for forwarded headers, so
+  Cloudflare edge addresses are untrusted and X-Forwarded-For is rewritten to the edge node: `req.ip`
+  is the same for every user whatever `TRUST_PROXY` says. The real client is only in
+  `CF-Connecting-IP`. The websecure entrypoint applies the `cloudflare-origin` ipAllowList (Cloudflare
+  ranges only), so on that path the header cannot be forged. Anywhere else (local dev, in-cluster
+  direct calls) it can, hence the flag. When on, a single valid IP in that header keys all IP-based
+  rate limits (and the IP fallback of the per-user limiter); an invalid, list or missing header falls
+  back to `req.ip`.
 
 ## Conventions
 - Conventional commits; semver tags **without** `v` prefix. No emoji. No `Co-Authored-By`.

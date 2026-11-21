@@ -7,6 +7,11 @@ function intEnv(name: string, def: number): number {
   return Number.isFinite(n) ? n : def;
 }
 
+// Like intEnv, but never below 1: a 0 or negative limit/window would block every request.
+function positiveIntEnv(name: string, def: number): number {
+  return Math.max(1, intEnv(name, def));
+}
+
 function listEnv(name: string): string[] {
   return (process.env[name] ?? '')
     .split(',')
@@ -73,15 +78,23 @@ export const config = {
   // Accepts a hop count, true/false, or an Express trust-proxy string.
   trustProxy: trustProxyEnv('TRUST_PROXY', 1),
 
+  // Behind Cloudflare, Traefik does not trust the Cloudflare edge addresses, so it
+  // rewrites X-Forwarded-For to the edge node and req.ip is the same edge address for
+  // every user. The real client address is only in CF-Connecting-IP. That header is
+  // trustworthy ONLY where the origin is reachable exclusively through Cloudflare (the
+  // websecure entrypoint's cloudflare-origin ipAllowList); anywhere else a caller can
+  // forge it. Hence an explicit opt-in: only the literal "true" enables it.
+  trustCfConnectingIp: process.env.TRUST_CF_CONNECTING_IP === 'true',
+
   // In-memory rate limits (per replica, fixed window of RATE_LIMIT_WINDOW_SECONDS).
-  rateLimitWindowMs: intEnv('RATE_LIMIT_WINDOW_SECONDS', 60) * 1000,
+  rateLimitWindowMs: positiveIntEnv('RATE_LIMIT_WINDOW_SECONDS', 60) * 1000,
   // /api, pre-auth, keyed by client IP (shared NAT / mobile carriers => generous).
-  rateLimitApiIpMax: intEnv('RATE_LIMIT_API_IP_MAX', 600),
+  rateLimitApiIpMax: positiveIntEnv('RATE_LIMIT_API_IP_MAX', 600),
   // /api, post-auth, keyed by the authenticated user.
-  rateLimitApiUserMax: intEnv('RATE_LIMIT_API_USER_MAX', 240),
+  rateLimitApiUserMax: positiveIntEnv('RATE_LIMIT_API_USER_MAX', 240),
   // Telegram webhook, keyed by IP. Telegram sends from a few fixed addresses, so
   // this is a flood backstop, not a per-user limit.
-  rateLimitWebhookMax: intEnv('RATE_LIMIT_WEBHOOK_MAX', 3000),
+  rateLimitWebhookMax: positiveIntEnv('RATE_LIMIT_WEBHOOK_MAX', 3000),
 } as const;
 
 export function isSuperAdmin(telegramId: string | number): boolean {
