@@ -59,6 +59,9 @@ DATABASE_URL=postgres://... DATABASE_SSL=false AUTH_DEV_BYPASS=true \
 - `COMMUNITY_SLUG` / `COMMUNITY_NAME` — the single MVP community.
 - `ORDER_TTL_SECONDS` (default 72h), `INITDATA_MAX_AGE_SECONDS` (default 24h),
   `PORT` (default 8080), `AUTH_DEV_BYPASS` (dev only; hard-off when `APP_ENV=production`).
+- Rate limiting (in-memory, per replica, single-replica assumption): `TRUST_PROXY` (default 1 hop),
+  `RATE_LIMIT_WINDOW_SECONDS` (60), `RATE_LIMIT_API_IP_MAX` (600), `RATE_LIMIT_API_USER_MAX` (240),
+  `RATE_LIMIT_WEBHOOK_MAX` (3000). Probes, `/metrics` and static assets are unlimited.
 
 ## Conventions
 - Conventional commits; semver tags **without** `v` prefix. No emoji. No `Co-Authored-By`.

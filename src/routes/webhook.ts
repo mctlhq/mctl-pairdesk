@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { config } from '../config.js';
+import { webhookLimiter } from '../middleware/rateLimit.js';
 import { handleUpdate, type TgUpdate } from '../telegram/webhook.js';
 
 export const webhookRouter = Router();
@@ -9,7 +10,7 @@ export const webhookRouter = Router();
 // NOT by Mini App initData, so this route lives outside the /api auth chain.
 // Responds 200 immediately and processes the update out of band (the handler
 // never throws), so a slow Bot API call can't make Telegram retry.
-webhookRouter.post('/telegram/webhook', (req, res) => {
+webhookRouter.post('/telegram/webhook', webhookLimiter, (req, res) => {
   // Fail closed. Without a configured secret we cannot authenticate Telegram, so
   // we must reject everything — otherwise anyone could POST a spoofed update and,
   // via /start with a super-admin Telegram id (the allowlist is not a secret),

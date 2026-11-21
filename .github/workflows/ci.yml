@@ -22,6 +22,8 @@ jobs:
       - run: npm run build:api
       - name: routing test
         run: node --test tests/integration/routing.test.mjs
+      - name: rate limit test
+        run: node --test tests/integration/ratelimit.test.mjs
 
   landing:
     name: landing build & type-check
