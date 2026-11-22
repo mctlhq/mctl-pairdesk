@@ -22,6 +22,7 @@
     "test:e2e:ui": "npm run test:db:up && playwright test --ui",
     "test:expiry": "npm run test:db:up && npm run build:api && node --test tests/integration/expiry.test.mjs",
     "test:webhook": "npm run build:api && node --test tests/integration/webhook-keyboard.test.mjs",
+    "test:rating": "npm run build:api && node --test tests/integration/rating-hidden.test.mjs",
     "test:routing": "npm run build:api && node --test tests/integration/routing.test.mjs",
     "test:ratelimit": "npm run build:api && node --test tests/integration/ratelimit.test.mjs tests/integration/ratelimit-cf-off.test.mjs tests/integration/ratelimit-config.test.mjs"
   },

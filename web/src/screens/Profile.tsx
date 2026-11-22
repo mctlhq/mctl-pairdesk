@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { Icon } from '../components.js';
+import { RATING_ENABLED } from '../features.js';
 import { hasMainButton, hapticError, hapticSelection, hapticSuccess, scrollFieldIntoView, setMainButton, showBackButton } from '../tg.js';
 import { type Me, PAYMENT_METHODS } from '../types.js';
 import { Admin } from './Admin.js';
@@ -93,9 +94,13 @@ export function Profile({ me, canAdmin, onSaved, onOpenOrder }: { me: Me; canAdm
             {me.username && <span className="pd-profile-handle">@{me.username}</span>}
           </span>
           <span className="pd-profile-rating">
-            <Icon name="star" size={14} fill cls="pd-star" />
-            <span className="pd-num">{p.rating_score}</span>
-            <span className="pd-dot-sep">·</span>
+            {RATING_ENABLED && (
+              <>
+                <Icon name="star" size={14} fill cls="pd-star" />
+                <span className="pd-num">{p.rating_score}</span>
+                <span className="pd-dot-sep">·</span>
+              </>
+            )}
             <span className="pd-num">{p.completed_deals_count}</span>&nbsp;deals
           </span>
         </div>
@@ -107,10 +112,12 @@ export function Profile({ me, canAdmin, onSaved, onOpenOrder }: { me: Me; canAdm
           <span className="pd-stat-num pd-num">{p.completed_deals_count}</span>
           <span className="pd-stat-label">Completed</span>
         </div>
-        <div className="pd-stat">
-          <span className="pd-stat-num pd-num">{Number(p.rating_score).toFixed(1)}</span>
-          <span className="pd-stat-label">Rating</span>
-        </div>
+        {RATING_ENABLED && (
+          <div className="pd-stat">
+            <span className="pd-stat-num pd-num">{Number(p.rating_score).toFixed(1)}</span>
+            <span className="pd-stat-label">Rating</span>
+          </div>
+        )}
       </div>
 
       {members != null && (

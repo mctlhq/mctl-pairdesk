@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { getCtx } from '../middleware/auth.js';
+import { RATING_ENABLED } from '../features.js';
 
 export const meRouter = Router();
 
@@ -43,7 +44,7 @@ meRouter.get('/me', async (req, res, next) => {
         preferred_payment_methods: r?.preferred_payment_methods ?? [],
         phone: r?.phone ?? null,
         contact: r?.contact ?? null,
-        rating_score: r?.rating_score ?? '0',
+        ...(RATING_ENABLED ? { rating_score: r?.rating_score ?? '0' } : {}),
         completed_deals_count: r?.completed_deals_count ?? 0,
       },
     });
