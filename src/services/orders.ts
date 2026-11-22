@@ -314,7 +314,7 @@ async function assembleOrders(
     [ids],
   );
   const { rows: makers } = await pool.query<PublicCounterparty>(
-    `SELECT u.id AS user_id, u.username, p.display_name, p.completed_deals_count
+    `SELECT u.id AS user_id, u.username, p.display_name, p.rating_score, p.completed_deals_count
        FROM users u LEFT JOIN user_profiles p ON p.user_id = u.id
       WHERE u.id = ANY($1)`,
     [makerIds],
