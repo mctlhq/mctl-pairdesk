@@ -81,6 +81,16 @@ async function handleMessage(msg: TgMessage): Promise<void> {
   }
 }
 
+/** Keyboard for the message that replaces a resolved action prompt. Join-request
+ * resolutions (approve_user/reject_user) go to moderators, who have no use for an
+ * "Open PairDesk" button on a terminal "Approved/Rejected: <member>" line, so they
+ * send no keyboard at all; deal resolutions keep the app button. */
+export function resolvedKeyboard(action: string): InlineButton[][] | undefined {
+  if (action === 'approve_user' || action === 'reject_user') return undefined;
+  const open = openAppButton();
+  return open ? [[open]] : undefined;
+}
+
 async function handleCallback(cq: TgCallbackQuery): Promise<void> {
   const data = cq.data ?? '';
   const sep = data.indexOf(':');
@@ -163,9 +173,7 @@ async function handleCallback(cq: TgCallbackQuery): Promise<void> {
     }
     await answerCallback(cq.id, toast);
     if (chatId != null && messageId != null) {
-      const open = openAppButton();
-      const buttons: InlineButton[][] | undefined = open ? [[open]] : undefined;
-      await editMessageText(chatId, messageId, resolved, buttons);
+      await editMessageText(chatId, messageId, resolved, resolvedKeyboard(action));
     }
   } catch (err) {
     const msg = err instanceof AppError ? err.message : 'Action failed';
