@@ -6,6 +6,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 process.env.MINI_APP_URL = 'https://app.example.test/';
+// tgApi returns before fetch without a bot token; config is read at import time.
+process.env.TELEGRAM_BOT_TOKEN = 'test-token';
 const { resolvedKeyboard } = await import('../../dist/telegram/webhook.js');
 const { editMessageText } = await import('../../dist/telegram/bot.js');
 
@@ -33,6 +35,6 @@ test('editMessageText with no buttons sends no reply_markup', async () => {
   } finally {
     globalThis.fetch = realFetch;
   }
-  // tgApi is a no-op without a bot token; when it does fetch, no markup is present.
+  assert.equal(bodies.length, 1, 'the edit must actually reach fetch');
   for (const b of bodies) assert.equal('reply_markup' in b, false);
 });

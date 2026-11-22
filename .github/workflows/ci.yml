@@ -24,6 +24,8 @@ jobs:
         run: node --test tests/integration/routing.test.mjs
       - name: rate limit test
         run: node --test tests/integration/ratelimit.test.mjs
+      - name: webhook keyboard test
+        run: node --test tests/integration/webhook-keyboard.test.mjs
 
   landing:
     name: landing build & type-check
