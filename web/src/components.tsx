@@ -2,6 +2,7 @@ import { ASSETS, type Asset, type GiveOption, type Order } from './types.js';
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api.js';
 import { scrollFieldIntoView } from './tg.js';
+import { RATING_ENABLED } from './features.js';
 
 // ---- SVG icon paths --------------------------------------------------------
 export const PD_ICON: Record<string, string> = {
@@ -162,9 +163,13 @@ export function Maker({ maker, sub }: { maker: MakerData | null; sub?: React.Rea
       <span className="pd-maker-meta">
         <span className="pd-maker-name">{name}</span>
         <span className="pd-maker-sub">
-          <Icon name="star" size={12} fill cls="pd-star" />
-          <span className="pd-num">{maker.rating_score ?? '—'}</span>
-          <span className="pd-dot-sep">·</span>
+          {RATING_ENABLED && (
+            <>
+              <Icon name="star" size={12} fill cls="pd-star" />
+              <span className="pd-num">{maker.rating_score ?? '—'}</span>
+              <span className="pd-dot-sep">·</span>
+            </>
+          )}
           <span className="pd-num">{maker.completed_deals_count ?? 0}</span>&nbsp;deals
           {sub ? <><span className="pd-dot-sep">·</span>{sub}</> : null}
         </span>

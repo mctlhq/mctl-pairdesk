@@ -1,3 +1,4 @@
+import { RATING_ENABLED } from '../features.js';
 // Serializers are the security boundary for sensitive data (req #6): contact /
 // phone / payment account details are NEVER placed on a public order shape. They
 // only appear on a deal shape, and only when the caller is entitled (see
@@ -28,7 +29,7 @@ export interface PublicCounterparty {
   user_id: number;
   username: string | null;
   display_name: string | null;
-  rating_score: string | number | null;
+  rating_score?: string | number | null;
   completed_deals_count: number | null;
 }
 
@@ -78,7 +79,7 @@ export function serializeOrder(
       ? {
           username: maker.username,
           display_name: maker.display_name,
-          rating_score: maker.rating_score,
+          ...(RATING_ENABLED ? { rating_score: maker.rating_score } : {}),
           completed_deals_count: maker.completed_deals_count,
         }
       : null,

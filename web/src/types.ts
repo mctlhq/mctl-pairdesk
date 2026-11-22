@@ -20,7 +20,7 @@ export interface Me {
     preferred_payment_methods: string[];
     phone: string | null;
     contact: string | null;
-    rating_score: string;
+    rating_score?: string;
     completed_deals_count: number;
   };
 }
@@ -46,7 +46,7 @@ export interface Order {
   status: string;
   expires_at: string | null;
   created_by_user_id: number;
-  maker: { username: string | null; display_name: string | null; rating_score: string | number | null; completed_deals_count: number | null } | null;
+  maker: { username: string | null; display_name: string | null; rating_score?: string | number | null; completed_deals_count: number | null } | null;
   created_at: string;
 }
 
